@@ -1,9 +1,4 @@
 ---
-import { env } from "cloudflare:workers"
-const db = env.what_about_that_time_events;
-const { results: events } = await db
-  .prepare("SELECT * FROM events ORDER BY start_date ASC")
-  .all();
 ---
 
 <html lang="en">
@@ -13,186 +8,119 @@ const { results: events } = await db
     <meta name="generator" content={Astro.generator} />
     <title>What About That Time</title>
     <style>
-      * { box-sizing: border-box; margin: 0; }
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
       body {
         font-family: system-ui, sans-serif;
-        padding: 2rem;
-        max-width: 960px;
-        margin: 0 auto;
-        background: #fafafa;
         color: #1a1a1a;
+        background: #fafafa;
+        line-height: 1.6;
       }
 
-      h1 { margin-bottom: 1.5rem; }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        background: #fff;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0,0,0,.1);
-      }
-
-      th, td {
-        text-align: left;
-        padding: .75rem;
-        border-bottom: 1px solid #eee;
-      }
-
-      th { background: #f0f0f0; font-weight: 600; }
-
-      .empty {
+      /* ── Hero ─────────────────────────────────────── */
+      .hero {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         text-align: center;
-        padding: 3rem 1rem;
-        color: #888;
+        min-height: 60vh;
+        padding: 4rem 2rem;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        color: #fff;
       }
 
-      .notes { color: #555; font-size: .9em; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-      .actions { display: flex; gap: .5rem; }
-      .actions button {
-        background: none; border: 1px solid #ccc; border-radius: 4px;
-        padding: .25rem .5rem; cursor: pointer; font-size: .85em;
+      .hero h1 {
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 1rem;
       }
-      .actions button:hover { background: #f0f0f0; }
-      .actions .delete { color: #c00; border-color: #c00; }
-      .actions .delete:hover { background: #ffe0e0; }
 
-      .add-form {
-        margin-top: 2rem;
-        padding: 1.5rem;
+      .hero p {
+        font-size: 1.2rem;
+        color: #ccc;
+        max-width: 480px;
+        margin-bottom: 2rem;
+      }
+
+      .hero a {
+        display: inline-block;
+        padding: .75rem 2rem;
         background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        color: #1a1a1a;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: background 0.2s;
+      }
+      .hero a:hover { background: #e0e0e0; }
+
+      /* ── Sections ─────────────────────────────────── */
+      .section {
+        padding: 4rem 2rem;
+        max-width: 720px;
+        margin: 0 auto;
       }
 
-      .add-form h2 { margin-bottom: 1rem; font-size: 1.1rem; }
-
-      .form-row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: end; }
-
-      .field { display: flex; flex-direction: column; gap: .25rem; }
-      .field label { font-size: .8rem; font-weight: 600; color: #555; }
-      .field input, .field textarea {
-        padding: .5rem; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: .9rem;
+      .section + .section {
+        border-top: 1px solid #eee;
       }
-      .field textarea { resize: vertical; }
 
-      .add-form button {
-        padding: .5rem 1rem; background: #1a1a1a; color: #fff;
-        border: none; border-radius: 4px; cursor: pointer; font: inherit;
+      .section h2 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
       }
-      .add-form button:hover { background: #333; }
 
-      .toast {
-        position: fixed; bottom: 1rem; right: 1rem;
-        padding: .75rem 1.25rem; border-radius: 6px; color: #fff;
-        opacity: 0; transition: opacity .3s;
+      .section p {
+        color: #444;
+        font-size: 1.05rem;
       }
-      .toast.show { opacity: 1; }
-      .toast.error { background: #c00; }
-      .toast.success { background: #2a7; }
+
+      .access-note {
+        margin-top: 1.25rem;
+        padding: 1rem 1.25rem;
+        background: #fff3cd;
+        border-left: 4px solid #f0a500;
+        border-radius: 4px;
+        color: #5a3e00;
+        font-size: .95rem;
+      }
     </style>
   </head>
   <body>
-    <h1>What About That Time</h1>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Start</th>
-          <th>End</th>
-          <th>Notes</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {events.length === 0 && (
-          <tr><td colspan="5" class="empty">No events yet</td></tr>
-        )}
-        {events.map((event) => (
-          <tr data-id={event.id}>
-            <td><strong>{event.title}</strong></td>
-            <td>{event.start_date}</td>
-            <td>{event.end_date ?? "—"}</td>
-            <td class="notes">{event.notes ?? ""}</td>
-            <td class="actions">
-              <button class="delete" data-id={event.id}>Delete</button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <!-- Hero -->
+    <section class="hero">
+      <h1>What About That Time</h1>
+      <p>A personal timeline for tracking events, memories, and moments that matter.</p>
+      <a href="/login">Sign In</a>
+    </section>
 
-    <div class="add-form">
-      <h2>Add Event</h2>
-      <form id="event-form" class="form-row">
-        <div class="field">
-          <label for="title">Title</label>
-          <input id="title" name="title" required />
-        </div>
-        <div class="field">
-          <label for="start_date">Start Date</label>
-          <input id="start_date" name="start_date" type="date" required />
-        </div>
-        <div class="field">
-          <label for="end_date">End Date</label>
-          <input id="end_date" name="end_date" type="date" />
-        </div>
-        <div class="field">
-          <label for="notes">Notes</label>
-          <textarea id="notes" name="notes" rows="1"></textarea>
-        </div>
-        <button type="submit">Add</button>
-      </form>
-    </div>
+    <!-- What is this -->
+    <section class="section">
+      <h2>What is this?</h2>
+      <p>
+        <strong>What About That Time</strong> is a simple personal app for logging events with dates
+        and notes — so you always have an answer when someone asks, "what about that time when…?"
+        Think of it as a lightweight private journal of moments, activities, and milestones,
+        all sorted by date and easy to search.
+      </p>
+    </section>
 
-    <div id="toast" class="toast"></div>
+    <!-- Who has access -->
+    <section class="section">
+      <h2>Who has access?</h2>
+      <p>
+        This app is private and built for exactly one person. If you're not the owner of this
+        project… you don't have access, lol. 😄
+      </p>
+      <div class="access-note">
+        🔒 Access is restricted to the project owner only. No sign-ups, no invites.
+      </div>
+    </section>
 
-    <script>
-      const form = document.getElementById("event-form");
-      const toast = document.getElementById("toast");
-
-      function showToast(message, type = "success") {
-        toast.textContent = message;
-        toast.className = `toast ${type} show`;
-        setTimeout(() => toast.classList.remove("show"), 3000);
-      }
-
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const data = new FormData(form);
-        const body = Object.fromEntries(data.entries());
-
-        const res = await fetch("/api/events", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          showToast(err.error || "Failed to create event", "error");
-          return;
-        }
-
-        location.reload();
-      });
-
-      document.querySelector("tbody").addEventListener("click", async (e) => {
-        if (!e.target.classList.contains("delete")) return;
-        const id = e.target.dataset.id;
-
-        const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
-        if (!res.ok) {
-          showToast("Failed to delete event", "error");
-          return;
-        }
-
-        location.reload();
-      });
-    </script>
   </body>
 </html>

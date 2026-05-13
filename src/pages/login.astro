@@ -1,0 +1,133 @@
+---
+import { isAuthenticated } from "../lib/auth";
+
+// Already logged in → go straight to the app
+if (isAuthenticated(Astro.request)) {
+  return Astro.redirect("/app");
+}
+
+const error = Astro.url.searchParams.get("error");
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Sign In · What About That Time</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: system-ui, sans-serif;
+        background: #fafafa;
+        color: #1a1a1a;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 12px rgba(0,0,0,.1);
+        padding: 2.5rem 2rem;
+        width: 100%;
+        max-width: 360px;
+      }
+
+      .card h1 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        text-align: center;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+        margin-bottom: 1rem;
+      }
+
+      .field label {
+        font-size: .8rem;
+        font-weight: 600;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+      }
+
+      .field input {
+        padding: .6rem .75rem;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font: inherit;
+        font-size: .95rem;
+      }
+      .field input:focus {
+        outline: none;
+        border-color: #1a1a1a;
+      }
+
+      button[type="submit"] {
+        width: 100%;
+        margin-top: .5rem;
+        padding: .7rem 1rem;
+        background: #1a1a1a;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        font: inherit;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      button[type="submit"]:hover { background: #333; }
+
+      .error {
+        background: #ffe0e0;
+        border: 1px solid #f5b0b0;
+        border-radius: 5px;
+        padding: .65rem .9rem;
+        font-size: .9rem;
+        color: #900;
+        margin-bottom: 1rem;
+      }
+
+      .back {
+        display: block;
+        text-align: center;
+        margin-top: 1.25rem;
+        font-size: .85rem;
+        color: #888;
+        text-decoration: none;
+      }
+      .back:hover { color: #1a1a1a; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Sign In</h1>
+
+      {error && <p class="error">Invalid username or password.</p>}
+
+      <form method="POST" action="/api/login">
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <button type="submit">Sign In</button>
+      </form>
+
+      <a class="back" href="/">&larr; Back to home</a>
+    </div>
+  </body>
+</html>
