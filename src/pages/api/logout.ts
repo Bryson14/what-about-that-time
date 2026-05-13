@@ -6,7 +6,7 @@ export const POST: APIRoute = async (context) => {
     status: 302,
     headers: {
       Location: "/",
-      "Set-Cookie": `${AUTH_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0`,
+      "Set-Cookie": `${AUTH_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Secure; Max-Age=0`,
     },
   });
 };
