@@ -1,0 +1,22 @@
+{
+	"compatibility_date": "2026-05-13",
+	"compatibility_flags": [
+		"global_fetch_strictly_public"
+	],
+	"name": "what-about-that-time",
+	"main": "@astrojs/cloudflare/entrypoints/server",
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS"
+	},
+	"observability": {
+		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "what_about_that_time_events",
+			"database_name": "what-about-that-time-events",
+			"database_id": "0da537fe-34be-4aaf-8807-9badf21ed292"
+		}
+	]
+}
