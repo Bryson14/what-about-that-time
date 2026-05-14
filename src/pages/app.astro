@@ -5,11 +5,8 @@ if (!isAuthenticated(Astro.request)) {
   return Astro.redirect("/login");
 }
 
-import { getDb, type Event } from "../lib/db";
-const db = getDb();
-const { results: events } = await db
-  .prepare("SELECT * FROM events ORDER BY start_date ASC")
-  .all<Event>();
+import { getAllEvents } from "../lib/db";
+const events = await getAllEvents();
 ---
 
 <html lang="en">
