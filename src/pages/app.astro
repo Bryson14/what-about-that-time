@@ -5,11 +5,11 @@ if (!isAuthenticated(Astro.request)) {
   return Astro.redirect("/login");
 }
 
-import { env } from "cloudflare:workers"
-const db = env.what_about_that_time_events;
+import { getDb, type Event } from "../lib/db";
+const db = getDb();
 const { results: events } = await db
   .prepare("SELECT * FROM events ORDER BY start_date ASC")
-  .all();
+  .all<Event>();
 ---
 
 <html lang="en">
