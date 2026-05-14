@@ -1,0 +1,283 @@
+---
+import { isAuthenticated } from "../lib/auth";
+
+if (!isAuthenticated(Astro.request)) {
+  return Astro.redirect("/login");
+}
+
+import { env } from "cloudflare:workers";
+const db = env.what_about_that_time_events;
+const { results: events } = await db
+  .prepare("SELECT * FROM events ORDER BY start_date ASC")
+  .all();
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Timeline – What About That Time</title>
+    <script src="https://cdn.jsdelivr.net/npm/@shipx/timelines-chart/dist/timelines-chart.min.js"></script>
+    <style>
+      * { box-sizing: border-box; margin: 0; }
+
+      body {
+        font-family: system-ui, sans-serif;
+        padding: 2rem;
+        background: #fafafa;
+        color: #1a1a1a;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        max-width: 1200px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .header h1 { margin: 0; }
+
+      .header-actions { display: flex; gap: .75rem; align-items: center; }
+
+      .nav-btn, .logout-btn {
+        padding: .35rem .85rem; background: none; border: 1px solid #ccc;
+        border-radius: 4px; cursor: pointer; font: inherit; font-size: .85rem;
+        color: #555; text-decoration: none; display: inline-block;
+      }
+      .nav-btn:hover, .logout-btn:hover { background: #f0f0f0; }
+
+      #chart-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        padding: 1rem;
+        overflow-x: auto;
+      }
+
+      .empty {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #888;
+      }
+
+      /* Modal */
+      .modal-backdrop {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.4);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-backdrop.open { display: flex; }
+
+      .modal {
+        background: #fff;
+        border-radius: 8px;
+        padding: 1.75rem;
+        width: 100%;
+        max-width: 460px;
+        box-shadow: 0 4px 20px rgba(0,0,0,.2);
+      }
+
+      .modal h2 { margin-bottom: 1.25rem; font-size: 1.1rem; }
+
+      .field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: 1rem; }
+      .field label { font-size: .8rem; font-weight: 600; color: #555; }
+      .field input, .field textarea {
+        padding: .5rem; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: .9rem;
+      }
+      .field textarea { resize: vertical; }
+
+      .modal-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1.25rem; }
+
+      .btn-save {
+        padding: .5rem 1.1rem; background: #1a1a1a; color: #fff;
+        border: none; border-radius: 4px; cursor: pointer; font: inherit;
+      }
+      .btn-save:hover { background: #333; }
+
+      .btn-cancel {
+        padding: .5rem 1.1rem; background: none; border: 1px solid #ccc;
+        border-radius: 4px; cursor: pointer; font: inherit; color: #555;
+      }
+      .btn-cancel:hover { background: #f0f0f0; }
+
+      .toast {
+        position: fixed; bottom: 1rem; right: 1rem;
+        padding: .75rem 1.25rem; border-radius: 6px; color: #fff;
+        opacity: 0; transition: opacity .3s; z-index: 200;
+      }
+      .toast.show { opacity: 1; }
+      .toast.error { background: #c00; }
+      .toast.success { background: #2a7; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>Timeline</h1>
+      <div class="header-actions">
+        <a href="/app" class="nav-btn">← Back to list</a>
+        <form method="POST" action="/api/logout" style="display:contents">
+          <button class="logout-btn" type="submit">Sign out</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="chart-container">
+      <div id="chart"></div>
+    </div>
+
+    <!-- Edit modal -->
+    <div class="modal-backdrop" id="modal">
+      <div class="modal">
+        <h2>Edit Event</h2>
+        <form id="edit-form">
+          <input type="hidden" id="edit-id" />
+          <div class="field">
+            <label for="edit-title">Title</label>
+            <input id="edit-title" name="title" required />
+          </div>
+          <div class="field">
+            <label for="edit-start">Start Date</label>
+            <input id="edit-start" name="start_date" type="date" required />
+          </div>
+          <div class="field">
+            <label for="edit-end">End Date</label>
+            <input id="edit-end" name="end_date" type="date" />
+          </div>
+          <div class="field">
+            <label for="edit-notes">Notes</label>
+            <textarea id="edit-notes" name="notes" rows="3"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-cancel" id="modal-cancel">Cancel</button>
+            <button type="submit" class="btn-save">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script define:vars={{ eventsData: events }}>
+      const toast = document.getElementById("toast");
+      const modal = document.getElementById("modal");
+      const editForm = document.getElementById("edit-form");
+
+      function showToast(message, type = "success") {
+        toast.textContent = message;
+        toast.className = `toast ${type} show`;
+        setTimeout(() => toast.classList.remove("show"), 3000);
+      }
+
+      function openModal(event) {
+        document.getElementById("edit-id").value = event.id;
+        document.getElementById("edit-title").value = event.title;
+        document.getElementById("edit-start").value = event.start_date;
+        document.getElementById("edit-end").value = event.end_date ?? "";
+        document.getElementById("edit-notes").value = event.notes ?? "";
+        modal.classList.add("open");
+      }
+
+      function closeModal() {
+        modal.classList.remove("open");
+      }
+
+      document.getElementById("modal-cancel").addEventListener("click", closeModal);
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+
+      editForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = document.getElementById("edit-id").value;
+        const body = {
+          title: document.getElementById("edit-title").value,
+          start_date: document.getElementById("edit-start").value,
+          end_date: document.getElementById("edit-end").value || null,
+          notes: document.getElementById("edit-notes").value || null,
+        };
+
+        const res = await fetch(`/api/events/${id}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          showToast("Failed to save event", "error");
+          return;
+        }
+
+        showToast("Event saved");
+        closeModal();
+        // Update local data and re-render chart
+        const idx = eventsData.findIndex((ev) => String(ev.id) === String(id));
+        if (idx !== -1) {
+          eventsData[idx] = { ...eventsData[idx], ...body };
+        }
+        renderChart();
+      });
+
+      function buildChartData(events) {
+        if (!events || events.length === 0) return [];
+        return [
+          {
+            label: "Events",
+            data: events.map((ev) => {
+              const start = new Date(ev.start_date);
+              // If no end date, show a 1-day segment so it's visible
+              const end = ev.end_date
+                ? new Date(ev.end_date)
+                : new Date(start.getTime() + 86400000);
+              return {
+                label: ev.title,
+                data: [{ timeRange: [start, end], val: ev.title, eventId: ev.id }],
+              };
+            }),
+          },
+        ];
+      }
+
+      let chart = null;
+
+      function renderChart() {
+        const container = document.getElementById("chart");
+
+        if (!eventsData || eventsData.length === 0) {
+          container.innerHTML = '<p class="empty">No events to display. <a href="/app">Add some events</a> first.</p>';
+          return;
+        }
+
+        container.innerHTML = "";
+
+        // TimelinesChart is exposed as a global from the CDN script
+        chart = TimelinesChart()(container);
+        chart
+          .data(buildChartData(eventsData))
+          .onSegmentClick((segment) => {
+            const clickedEvent = eventsData.find(
+              (ev) => String(ev.id) === String(segment.eventId)
+            ) || null;
+            if (clickedEvent) {
+              openModal(clickedEvent);
+            }
+          });
+      }
+
+      // Wait for CDN script to load before rendering
+      if (typeof TimelinesChart !== "undefined") {
+        renderChart();
+      } else {
+        document.querySelector('script[src*="timelines-chart"]').addEventListener("load", renderChart);
+      }
+    </script>
+  </body>
+</html>
