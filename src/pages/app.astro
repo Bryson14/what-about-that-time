@@ -106,14 +106,24 @@ const { results: events } = await db
         border-radius: 4px; cursor: pointer; font: inherit; font-size: .85rem; color: #555;
       }
       .logout-btn:hover { background: #f0f0f0; }
+
+      .nav-btn {
+        padding: .35rem .85rem; background: none; border: 1px solid #ccc;
+        border-radius: 4px; font: inherit; font-size: .85rem; color: #555;
+        text-decoration: none; display: inline-block;
+      }
+      .nav-btn:hover { background: #f0f0f0; }
     </style>
   </head>
   <body>
     <div class="header">
       <h1>What About That Time</h1>
-      <form method="POST" action="/api/logout">
-        <button class="logout-btn" type="submit">Sign out</button>
-      </form>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <a href="/timeline" class="nav-btn">Timeline view</a>
+        <form method="POST" action="/api/logout" style="display:contents">
+          <button class="logout-btn" type="submit">Sign out</button>
+        </form>
+      </div>
     </div>
 
     <table>
