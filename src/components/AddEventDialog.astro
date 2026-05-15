@@ -1,0 +1,98 @@
+<dialog id="add-dialog" class="event-dialog">
+  <form id="event-form" method="dialog">
+    <div class="dialog-head">
+      <h2>Add Event</h2>
+      <button id="close-dialog" class="icon-btn" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="title">Title</label>
+        <input id="title" name="title" required />
+      </div>
+      <div class="field">
+        <label for="start_date">Start Date</label>
+        <input id="start_date" name="start_date" type="date" required />
+      </div>
+      <div class="field">
+        <label for="end_date">End Date <em>(Optional)</em></label>
+        <input id="end_date" name="end_date" type="date" />
+      </div>
+      <div class="field">
+        <label for="notes">Notes <em>(Optional)</em></label>
+        <textarea id="notes" name="notes" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button id="cancel-dialog" class="cancel-btn" type="button">Cancel</button>
+      <button class="save-btn" type="submit">Add</button>
+    </div>
+  </form>
+</dialog>
+
+<style>
+  dialog.event-dialog {
+    margin: auto;
+    border: none;
+    border-radius: 12px;
+    padding: 1rem;
+    width: min(100% - 1.5rem, 420px);
+    box-shadow: 0 16px 40px rgba(0,0,0,.26);
+  }
+
+  dialog.event-dialog::backdrop { background: rgba(0,0,0,.45); }
+
+  .dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .9rem;
+  }
+  .dialog-head h2 { font-size: 1.05rem; }
+
+  .icon-btn {
+    border: 1px solid #d0d0d0;
+    background: #fff;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: #f5f5f5; }
+
+  .form-grid {
+    display: grid;
+    gap: .8rem;
+  }
+
+  .field { display: flex; flex-direction: column; gap: .3rem; }
+  .field label { font-size: .8rem; font-weight: 600; color: #555; }
+  .field input, .field textarea {
+    padding: .5rem; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: .9rem;
+  }
+  .field textarea { resize: vertical; }
+
+  .save-btn {
+    padding: .6rem 1rem; background: #1a1a1a; color: #fff;
+    border: none; border-radius: 4px; cursor: pointer; font: inherit;
+  }
+  .save-btn:hover { background: #333; }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: .45rem;
+    margin-top: .9rem;
+  }
+
+  .cancel-btn {
+    border: 1px solid #d0d0d0;
+    background: #fff;
+    color: #444;
+    border-radius: 4px;
+    padding: .6rem .9rem;
+    font: inherit;
+    cursor: pointer;
+  }
+  .cancel-btn:hover { background: #f5f5f5; }
+</style>

@@ -7,53 +7,11 @@ if (!isAuthenticated(Astro.request)) {
 
 import { getAllEvents } from "../lib/db";
 import type { Event } from "../lib/db";
-import { createTable, createColumnHelper, getCoreRowModel } from "@tanstack/table-core";
+import EventsTable from "../components/EventsTable.astro";
+import AddEventDialog from "../components/AddEventDialog.astro";
+import Toast from "../components/Toast.astro";
 
 const events = await getAllEvents();
-
-const columnHelper = createColumnHelper<Event>();
-
-const columns = [
-  columnHelper.accessor("title", { header: "Title" }),
-  columnHelper.accessor("start_date", { header: "Start" }),
-  columnHelper.accessor("end_date", { header: "End" }),
-  columnHelper.accessor("notes", { header: "Notes" }),
-  columnHelper.display({ id: "actions", header: "" }),
-];
-
-const table = createTable({
-  columns,
-  data: events,
-  getCoreRowModel: getCoreRowModel(),
-  renderFallbackValue: null,
-  state: {
-    columnVisibility: {},
-    columnOrder: [],
-    columnPinning: { left: [], right: [] },
-    rowPinning: { top: [], bottom: [] },
-    columnFilters: [],
-    globalFilter: undefined,
-    sorting: [],
-    grouping: [],
-    expanded: {},
-    columnSizing: {},
-    columnSizingInfo: {
-      startOffset: null,
-      startSize: null,
-      deltaOffset: null,
-      deltaPercentage: null,
-      isResizingColumn: false,
-      columnSizingStart: [],
-    },
-    pagination: { pageIndex: 0, pageSize: 10 },
-    rowSelection: {},
-  },
-  onStateChange: () => {},
-});
-
-const headerGroups = table.getHeaderGroups();
-const rows = table.getRowModel().rows;
-const colCount = headerGroups[0]?.headers.length ?? 5;
 ---
 
 <html lang="en">
@@ -81,108 +39,6 @@ const colCount = headerGroups[0]?.headers.length ?? 5;
         margin: 0 auto;
         padding: 2rem; }
 
-      .table-shell {
-        overflow-x: auto;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,.1);
-        background: #fff;
-        display: flex;
-        justify-content: center;
-        padding-bottom: 2.5rem;
-      }
-
-      table {
-        width: auto;
-        min-width: 680px;
-        border-collapse: collapse;
-      }
-
-      th, td {
-        text-align: left;
-        padding: .75rem;
-        border-bottom: 1px solid #eee;
-      }
-
-      th { background: #f0f0f0; font-weight: 600; }
-
-      .empty {
-        text-align: center;
-        padding: 3rem 1rem;
-        color: #888;
-      }
-
-      .notes { color: #555; font-size: .9em; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-      .actions {
-        width: 68px;
-        position: relative;
-      }
-
-      .menu {
-        position: relative;
-        display: flex;
-        justify-content: flex-end;
-      }
-
-      .menu-trigger {
-        width: 2rem;
-        height: 2rem;
-        border-radius: 999px;
-        border: 1px solid #d7d7d7;
-        background: #fff;
-        cursor: pointer;
-        font-size: 1.15rem;
-        line-height: 1;
-      }
-      .menu-trigger:hover { background: #f5f5f5; }
-
-      .menu-panel {
-        position: absolute;
-        top: calc(100% + .25rem);
-        right: 0;
-        min-width: 120px;
-        padding: .35rem;
-        border: 1px solid #e5e5e5;
-        border-radius: 8px;
-        background: #fff;
-        box-shadow: 0 8px 20px rgba(0,0,0,.12);
-        z-index: 20;
-      }
-
-      .menu-panel .delete {
-        width: 100%;
-        text-align: left;
-        background: #fff;
-        border: 1px solid #f1d1d1;
-        color: #b10000;
-        border-radius: 6px;
-        padding: .45rem .55rem;
-        cursor: pointer;
-        font-size: .85rem;
-      }
-      .menu-panel .delete:hover { background: #fff1f1; }
-
-      .field { display: flex; flex-direction: column; gap: .3rem; }
-      .field label { font-size: .8rem; font-weight: 600; color: #555; }
-      .field input, .field textarea {
-        padding: .5rem; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: .9rem;
-      }
-      .field textarea { resize: vertical; }
-
-      .save-btn {
-        padding: .6rem 1rem; background: #1a1a1a; color: #fff;
-        border: none; border-radius: 4px; cursor: pointer; font: inherit;
-      }
-      .save-btn:hover { background: #333; }
-
-      .toast {
-        position: fixed; bottom: 1rem; right: 1rem;
-        padding: .75rem 1.25rem; border-radius: 6px; color: #fff;
-        opacity: 0; transition: opacity .3s;
-      }
-      .toast.show { opacity: 1; }
-      .toast.error { background: #c00; }
-      .toast.success { background: #2a7; }
 
       .header {
         display: flex;
@@ -203,59 +59,6 @@ const colCount = headerGroups[0]?.headers.length ?? 5;
         text-decoration: none; display: inline-block;
       }
       .nav-btn:hover { background: #f0f0f0; }
-
-      dialog.event-dialog {
-        margin: auto;
-        border: none;
-        border-radius: 12px;
-        padding: 1rem;
-        width: min(100% - 1.5rem, 420px);
-        box-shadow: 0 16px 40px rgba(0,0,0,.26);
-      }
-
-      dialog.event-dialog::backdrop { background: rgba(0,0,0,.45); }
-
-      .dialog-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: .9rem;
-      }
-      .dialog-head h2 { font-size: 1.05rem; }
-
-      .icon-btn {
-        border: 1px solid #d0d0d0;
-        background: #fff;
-        width: 2rem;
-        height: 2rem;
-        border-radius: 999px;
-        font-size: 1.1rem;
-        cursor: pointer;
-      }
-      .icon-btn:hover { background: #f5f5f5; }
-
-      .form-grid {
-        display: grid;
-        gap: .8rem;
-      }
-
-      .dialog-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: .45rem;
-        margin-top: .9rem;
-      }
-
-      .cancel-btn {
-        border: 1px solid #d0d0d0;
-        background: #fff;
-        color: #444;
-        border-radius: 4px;
-        padding: .6rem .9rem;
-        font: inherit;
-        cursor: pointer;
-      }
-      .cancel-btn:hover { background: #f5f5f5; }
 
       .add-fab {
         position: fixed;
@@ -303,86 +106,11 @@ const colCount = headerGroups[0]?.headers.length ?? 5;
         </div>
       </div>
 
-      <div class="table-shell">
-        <table>
-          <thead>
-            {headerGroups.map(headerGroup => (
-              <tr>
-                {headerGroup.headers.map(header => (
-                  <th>{header.column.columnDef.header as string}</th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr><td colspan={colCount} class="empty">No events yet</td></tr>
-            )}
-            {rows.map(row => (
-              <tr data-id={row.original.id}>
-                {row.getVisibleCells().map(cell => {
-                  if (cell.column.id === "actions") {
-                    return (
-                      <td class="actions">
-                        <div class="menu">
-                          <button class="menu-trigger" type="button" aria-label="Open actions menu">⋯</button>
-                          <div class="menu-panel" hidden>
-                            <button class="delete" data-id={row.original.id} type="button">Delete</button>
-                          </div>
-                        </div>
-                      </td>
-                    );
-                  }
-                  if (cell.column.id === "title") {
-                    return <td><strong>{cell.getValue() as string}</strong></td>;
-                  }
-                  if (cell.column.id === "notes") {
-                    return <td class="notes">{(cell.getValue() as string) ?? ""}</td>;
-                  }
-                  if (cell.column.id === "end_date") {
-                    return <td>{(cell.getValue() as string) ?? "—"}</td>;
-                  }
-                  return <td>{cell.getValue() as string}</td>;
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <EventsTable events={events} />
     </div>
 
-    <dialog id="add-dialog" class="event-dialog">
-      <form id="event-form" method="dialog">
-        <div class="dialog-head">
-          <h2>Add Event</h2>
-          <button id="close-dialog" class="icon-btn" type="button" aria-label="Close">×</button>
-        </div>
-        <div class="form-grid">
-          <div class="field">
-            <label for="title">Title</label>
-            <input id="title" name="title" required />
-          </div>
-          <div class="field">
-            <label for="start_date">Start Date</label>
-            <input id="start_date" name="start_date" type="date" required />
-          </div>
-          <div class="field">
-            <label for="end_date">End Date <em>(Optional)</em></label>
-            <input id="end_date" name="end_date" type="date" />
-          </div>
-          <div class="field">
-            <label for="notes">Notes <em>(Optional)</em></label>
-            <textarea id="notes" name="notes" rows="2"></textarea>
-          </div>
-        </div>
-        <div class="dialog-actions">
-          <button id="cancel-dialog" class="cancel-btn" type="button">Cancel</button>
-          <button class="save-btn" type="submit">Add</button>
-        </div>
-      </form>
-    </dialog>
-
-    <div id="toast" class="toast"></div>
+    <AddEventDialog />
+    <Toast />
 
     <script>
       const addDialog = document.getElementById("add-dialog") as HTMLDialogElement;

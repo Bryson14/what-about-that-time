@@ -1,0 +1,12 @@
+<div id="toast" class="toast"></div>
+
+<style>
+  .toast {
+    position: fixed; bottom: 1rem; right: 1rem;
+    padding: .75rem 1.25rem; border-radius: 6px; color: #fff;
+    opacity: 0; transition: opacity .3s;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: #c00; }
+  .toast.success { background: #2a7; }
+</style>
