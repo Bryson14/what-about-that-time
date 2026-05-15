@@ -266,7 +266,7 @@ const { results: events } = await db
           </thead>
           <tbody>
             {events.length === 0 && (
-              <tr><td colspan="5" class="empty">No events yet</td></tr>
+              <tr><td colSpan="5" class="empty">No events yet</td></tr>
             )}
             {events.map((event) => (
               <tr data-id={event.id}>
@@ -338,19 +338,15 @@ const { results: events } = await db
       }
 
       function openAddDialog() {
-        if (typeof addDialog.showModal === "function") {
-          addDialog.showModal();
-        } else {
-          addDialog.setAttribute("open", "");
+        if (typeof addDialog.showModal !== "function") {
+          showToast("Your browser does not support the native dialog API", "error");
+          return;
         }
+        addDialog.showModal();
       }
 
       function closeAddDialog() {
-        if (typeof addDialog.close === "function") {
-          addDialog.close();
-        } else {
-          addDialog.removeAttribute("open");
-        }
+        if (typeof addDialog.close === "function") addDialog.close();
       }
 
       openAddButton.addEventListener("click", openAddDialog);
