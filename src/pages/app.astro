@@ -32,7 +32,10 @@ const { results: events } = await db
 
       h1 { margin-bottom: .5rem; }
 
-      .content { padding-bottom: 4rem; }
+      .content { padding-bottom: 4rem;
+      max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem; }
 
       .table-shell {
         overflow-x: auto;
@@ -323,15 +326,16 @@ const { results: events } = await db
     <div id="toast" class="toast"></div>
 
     <script>
-      const form = document.getElementById("event-form");
-      const toast = document.getElementById("toast");
-      const addDialog = document.getElementById("add-dialog");
-      const openAddButton = document.getElementById("open-add");
-      const closeDialogButton = document.getElementById("close-dialog");
-      const cancelDialogButton = document.getElementById("cancel-dialog");
-      const tableBody = document.querySelector("tbody");
+      const addDialog = document.getElementById("add-dialog") as HTMLDialogElement;
+      const openAddButton = document.getElementById("open-add") as HTMLButtonElement;
+      const closeDialogButton = document.getElementById("close-dialog") as HTMLButtonElement;
+      const cancelDialogButton = document.getElementById("cancel-dialog") as HTMLButtonElement;
+      const tableBody = document.querySelector("tbody") as HTMLTableSectionElement;
+      const form = document.getElementById("event-form") as HTMLFormElement;
+      const toast = document.getElementById("toast") as HTMLDivElement | null;
 
-      function showToast(message, type = "success") {
+      function showToast(message: string, type: "success" | "error" = "success") {
+        if (!toast) return;
         toast.textContent = message;
         toast.className = `toast ${type} show`;
         setTimeout(() => toast.classList.remove("show"), 3000);
@@ -381,10 +385,10 @@ const { results: events } = await db
       }
 
       tableBody.addEventListener("click", async (e) => {
-        const target = e.target;
+        const target = e.target as HTMLElement;
 
         if (target.classList.contains("menu-trigger")) {
-          const panel = target.nextElementSibling;
+          const panel = target.nextElementSibling as HTMLElement;
           const wasOpen = !panel.hidden;
           closeMenus();
           panel.hidden = wasOpen;
@@ -412,5 +416,6 @@ const { results: events } = await db
         }
       });
     </script>
+  </div>
   </body>
 </html>
