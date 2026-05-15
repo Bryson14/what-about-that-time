@@ -266,7 +266,7 @@ const { results: events } = await db
           </thead>
           <tbody>
             {events.length === 0 && (
-              <tr><td colSpan="5" class="empty">No events yet</td></tr>
+              <tr><td colspan="5" class="empty">No events yet</td></tr>
             )}
             {events.map((event) => (
               <tr data-id={event.id}>
@@ -339,7 +339,7 @@ const { results: events } = await db
 
       function openAddDialog() {
         if (typeof addDialog.showModal !== "function") {
-          showToast("Unable to open dialog. Please update your browser to continue.", "error");
+          showToast("Your browser does not support the dialog feature. Please use a modern browser.", "error");
           return;
         }
         addDialog.showModal();
@@ -393,7 +393,7 @@ const { results: events } = await db
 
         if (!target.classList.contains("delete")) return;
         const id = target.dataset.id;
-        const eventTitle = target.closest("tr")?.querySelector("strong")?.textContent?.trim() || "the selected event";
+        const eventTitle = target.closest("tr")?.querySelector("strong")?.textContent?.trim() || "this event";
 
         if (!window.confirm(`Delete "${eventTitle}"?`)) return;
 
