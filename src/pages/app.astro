@@ -339,7 +339,7 @@ const { results: events } = await db
 
       function openAddDialog() {
         if (typeof addDialog.showModal !== "function") {
-          showToast("Your browser does not support the native dialog API", "error");
+          showToast("Your browser does not support the native dialog API. Please update your browser to add events.", "error");
           return;
         }
         addDialog.showModal();
@@ -393,8 +393,9 @@ const { results: events } = await db
 
         if (!target.classList.contains("delete")) return;
         const id = target.dataset.id;
+        const eventTitle = target.closest("tr")?.querySelector("strong")?.textContent?.trim() || "this event";
 
-        if (!window.confirm("Delete this event?")) return;
+        if (!window.confirm(`Delete "${eventTitle}"?`)) return;
 
         const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
         if (!res.ok) {
