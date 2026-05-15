@@ -25,7 +25,7 @@
         justify-content: center;
         text-align: center;
         min-height: 60vh;
-        padding: 4rem 2rem;
+        padding: 3rem 1rem;
         background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
         color: #fff;
       }
@@ -38,10 +38,10 @@
       }
 
       .hero p {
-        font-size: 1.2rem;
+        font-size: 1rem;
         color: #ccc;
         max-width: 480px;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
       }
 
       .hero a {
@@ -59,7 +59,7 @@
 
       /* ── Sections ─────────────────────────────────── */
       .section {
-        padding: 4rem 2rem;
+        padding: 2.5rem 1rem;
         max-width: 720px;
         margin: 0 auto;
       }
@@ -69,24 +69,35 @@
       }
 
       .section h2 {
-        font-size: 1.8rem;
+        font-size: 1.45rem;
         font-weight: 700;
         margin-bottom: 1rem;
       }
 
       .section p {
         color: #444;
-        font-size: 1.05rem;
+        font-size: 1rem;
       }
 
       .access-note {
         margin-top: 1.25rem;
-        padding: 1rem 1.25rem;
+        padding: .9rem 1rem;
         background: #fff3cd;
         border-left: 4px solid #f0a500;
         border-radius: 4px;
         color: #5a3e00;
         font-size: .95rem;
+      }
+
+      @media (min-width: 768px) {
+        .hero { padding: 4rem 2rem; }
+        .hero p {
+          font-size: 1.2rem;
+          margin-bottom: 2rem;
+        }
+        .section { padding: 4rem 2rem; }
+        .section h2 { font-size: 1.8rem; }
+        .section p { font-size: 1.05rem; }
       }
     </style>
   </head>

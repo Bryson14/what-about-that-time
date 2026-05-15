@@ -5,11 +5,8 @@ if (!isAuthenticated(Astro.request)) {
   return Astro.redirect("/login");
 }
 
-import { env } from "cloudflare:workers";
-const db = env.what_about_that_time_events;
-const { results: events } = await db
-  .prepare("SELECT * FROM events ORDER BY start_date ASC")
-  .all();
+import { getAllEvents } from "../lib/db";
+const events = await getAllEvents();
 ---
 
 <html lang="en">
@@ -24,16 +21,17 @@ const { results: events } = await db
 
       body {
         font-family: system-ui, sans-serif;
-        padding: 2rem;
+        padding: 1rem;
         background: #fafafa;
         color: #1a1a1a;
       }
 
       .header {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: .75rem;
+        margin-bottom: 1rem;
         max-width: 1200px;
         margin-left: auto;
         margin-right: auto;
@@ -41,7 +39,7 @@ const { results: events } = await db
 
       .header h1 { margin: 0; }
 
-      .header-actions { display: flex; gap: .75rem; align-items: center; }
+      .header-actions { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
 
       .nav-btn, .logout-btn {
         padding: .35rem .85rem; background: none; border: 1px solid #ccc;
@@ -56,7 +54,7 @@ const { results: events } = await db
         background: #fff;
         border-radius: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,.1);
-        padding: 1rem;
+        padding: .5rem;
         overflow-x: auto;
       }
 
@@ -117,6 +115,17 @@ const { results: events } = await db
       .toast.show { opacity: 1; }
       .toast.error { background: #c00; }
       .toast.success { background: #2a7; }
+
+      @media (min-width: 768px) {
+        body { padding: 2rem; }
+        .header {
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
+        }
+        #chart-container { padding: 1rem; }
+      }
     </style>
   </head>
   <body>

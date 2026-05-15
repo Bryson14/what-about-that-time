@@ -26,14 +26,14 @@ const error = Astro.url.searchParams.get("error");
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 2rem;
+        padding: 1rem;
       }
 
       .card {
         background: #fff;
         border-radius: 10px;
         box-shadow: 0 2px 12px rgba(0,0,0,.1);
-        padding: 2.5rem 2rem;
+        padding: 1.4rem 1rem;
         width: 100%;
         max-width: 360px;
       }
@@ -107,6 +107,11 @@ const error = Astro.url.searchParams.get("error");
         text-decoration: none;
       }
       .back:hover { color: #1a1a1a; }
+
+      @media (min-width: 768px) {
+        body { padding: 2rem; }
+        .card { padding: 2.5rem 2rem; }
+      }
     </style>
   </head>
   <body>

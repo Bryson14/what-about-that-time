@@ -1,0 +1,126 @@
+---
+import type { Event } from "../lib/db";
+import { createTable, createColumnHelper, getCoreRowModel } from "@tanstack/table-core";
+import ActionsMenu from "./ActionsMenu.astro";
+
+export interface Props {
+  events: Event[];
+}
+const { events } = Astro.props;
+
+const columnHelper = createColumnHelper<Event>();
+
+const columns = [
+  columnHelper.accessor("title", { header: "Title" }),
+  columnHelper.accessor("start_date", { header: "Start" }),
+  columnHelper.accessor("end_date", { header: "End" }),
+  columnHelper.accessor("notes", { header: "Notes" }),
+  columnHelper.display({ id: "actions", header: "" }),
+];
+
+const table = createTable({
+  columns,
+  data: events,
+  getCoreRowModel: getCoreRowModel(),
+  renderFallbackValue: null,
+  state: {
+    columnVisibility: {},
+    columnOrder: [],
+    columnPinning: { left: [], right: [] },
+    rowPinning: { top: [], bottom: [] },
+    columnFilters: [],
+    globalFilter: undefined,
+    sorting: [],
+    grouping: [],
+    expanded: {},
+    columnSizing: {},
+    columnSizingInfo: {
+      startOffset: null,
+      startSize: null,
+      deltaOffset: null,
+      deltaPercentage: null,
+      isResizingColumn: false,
+      columnSizingStart: [],
+    },
+    pagination: { pageIndex: 0, pageSize: 10 },
+    rowSelection: {},
+  },
+  onStateChange: () => {},
+});
+
+const headerGroups = table.getHeaderGroups();
+const rows = table.getRowModel().rows;
+const colCount = headerGroups[0]?.headers.length ?? 5;
+---
+
+<div class="table-shell">
+  <table>
+    <thead>
+      {headerGroups.map(headerGroup => (
+        <tr>
+          {headerGroup.headers.map(header => (
+            <th>{header.column.columnDef.header as string}</th>
+          ))}
+        </tr>
+      ))}
+    </thead>
+    <tbody>
+      {rows.length === 0 && (
+        <tr><td colspan={colCount} class="empty">No events yet</td></tr>
+      )}
+      {rows.map(row => (
+        <tr data-id={row.original.id}>
+          {row.getVisibleCells().map(cell => {
+            if (cell.column.id === "actions") {
+              return <ActionsMenu eventId={row.original.id} />;
+            }
+            if (cell.column.id === "title") {
+              return <td><strong>{cell.getValue() as string}</strong></td>;
+            }
+            if (cell.column.id === "notes") {
+              return <td class="notes">{(cell.getValue() as string) ?? ""}</td>;
+            }
+            if (cell.column.id === "end_date") {
+              return <td>{(cell.getValue() as string) ?? "—"}</td>;
+            }
+            return <td>{cell.getValue() as string}</td>;
+          })}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .table-shell {
+    overflow-x: auto;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    background: #fff;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 2.5rem;
+  }
+
+  table {
+    width: auto;
+    min-width: 680px;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    text-align: left;
+    padding: .75rem;
+    border-bottom: 1px solid #eee;
+  }
+
+  th { background: #f0f0f0; font-weight: 600; }
+
+  .empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #888;
+  }
+
+  .notes { color: #555; font-size: .9em; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>

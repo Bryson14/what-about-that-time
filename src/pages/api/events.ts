@@ -1,34 +1,28 @@
 import type { APIRoute } from "astro";
-import { env } from "cloudflare:workers";
+import { getAllEvents, createEvent } from "../../lib/db";
+import { createEventSchema } from "../../lib/validation";
 
-export const GET: APIRoute = async (context) => {
-  const db = env.what_about_that_time_events;
-  const events = await db
-    .prepare("SELECT * FROM events ORDER BY start_date ASC")
-    .all();
-  return new Response(JSON.stringify(events.results), {
+export const GET: APIRoute = async () => {
+  const events = await getAllEvents();
+  return new Response(JSON.stringify(events), {
     headers: { "content-type": "application/json" },
   });
 };
 
 export const POST: APIRoute = async (context) => {
-  const db = env.what_about_that_time_events;
   const body = await context.request.json();
-  const { title, start_date, end_date, notes } = body;
+  const parsed = createEventSchema.safeParse(body);
 
-  if (!title || !start_date) {
-    return new Response(JSON.stringify({ error: "title and start_date are required" }), {
+  if (!parsed.success) {
+    return new Response(JSON.stringify({ error: parsed.error.issues }), {
       status: 400,
       headers: { "content-type": "application/json" },
     });
   }
 
-  const result = await db
-    .prepare("INSERT INTO events (title, start_date, end_date, notes) VALUES (?1, ?2, ?3, ?4)")
-    .bind(title, start_date, end_date ?? null, notes ?? null)
-    .run();
+  const id = await createEvent(parsed.data);
 
-  return new Response(JSON.stringify({ id: result.meta.last_row_id }), {
+  return new Response(JSON.stringify({ id }), {
     status: 201,
     headers: { "content-type": "application/json" },
   });
