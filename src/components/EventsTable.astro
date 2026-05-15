@@ -14,6 +14,7 @@ const columns = [
   columnHelper.accessor("title", { header: "Title" }),
   columnHelper.accessor("start_date", { header: "Start" }),
   columnHelper.accessor("end_date", { header: "End" }),
+  columnHelper.accessor("created_by", { header: "Added By" }),
   columnHelper.accessor("notes", { header: "Notes" }),
   columnHelper.display({ id: "actions", header: "" }),
 ];
@@ -50,7 +51,7 @@ const table = createTable({
 
 const headerGroups = table.getHeaderGroups();
 const rows = table.getRowModel().rows;
-const colCount = headerGroups[0]?.headers.length ?? 5;
+const colCount = headerGroups[0]?.headers.length ?? 6;
 ---
 
 <div class="table-shell">

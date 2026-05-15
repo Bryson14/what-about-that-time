@@ -4,6 +4,7 @@
 declare namespace Cloudflare {
 	interface Env {
 		what_about_that_time_events: D1Database;
+		what_about_that_time_users: KVNamespace;
 		ASSETS: Fetcher;
 	}
 }

@@ -1,12 +1,14 @@
 ---
-import { isAuthenticated } from "../lib/auth";
+import { getSessionFromRequest, isAdminUser } from "../lib/auth";
 
-if (!isAuthenticated(Astro.request)) {
+const session = await getSessionFromRequest(Astro.request);
+if (!session) {
   return Astro.redirect("/login");
 }
 
 import { getAllEvents } from "../lib/db";
 const events = await getAllEvents();
+const isAdmin = isAdminUser(session);
 ---
 
 <html lang="en">
@@ -47,6 +49,14 @@ const events = await getAllEvents();
         color: #555; text-decoration: none; display: inline-block;
       }
       .nav-btn:hover, .logout-btn:hover { background: #f0f0f0; }
+      .user-chip {
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        padding: .3rem .75rem;
+        font-size: .8rem;
+        color: #555;
+        background: #fff;
+      }
 
       #chart-container {
         max-width: 1200px;
@@ -132,6 +142,8 @@ const events = await getAllEvents();
     <div class="header">
       <h1>Timeline</h1>
       <div class="header-actions">
+        <span class="user-chip">{session.fullName} (@{session.username})</span>
+        {isAdmin && <a href="/admin" class="nav-btn">Admin</a>}
         <a href="/app" class="nav-btn">← Back to list</a>
         <form method="POST" action="/api/logout" style="display:contents">
           <button class="logout-btn" type="submit">Sign out</button>

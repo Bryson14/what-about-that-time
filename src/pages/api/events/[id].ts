@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
 import { getEventById, updateEvent, deleteEvent } from "../../../lib/db";
 import { updateEventSchema } from "../../../lib/validation";
+import { getSessionFromRequest } from "../../../lib/auth";
 
 export const PUT: APIRoute = async (context) => {
+  const session = await getSessionFromRequest(context.request);
+  if (!session) return new Response("Unauthorized", { status: 401 });
+
   const id = Number(context.params.id!);
   const body = await context.request.json();
   const parsed = updateEventSchema.safeParse(body);
@@ -34,6 +38,9 @@ export const PUT: APIRoute = async (context) => {
 };
 
 export const DELETE: APIRoute = async (context) => {
+  const session = await getSessionFromRequest(context.request);
+  if (!session) return new Response("Unauthorized", { status: 401 });
+
   const id = Number(context.params.id!);
 
   const existing = await getEventById(id);

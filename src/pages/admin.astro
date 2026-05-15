@@ -1,0 +1,227 @@
+---
+import { getSessionFromRequest, isAdminUser, listUsers } from "../lib/auth";
+
+const session = await getSessionFromRequest(Astro.request);
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+if (!isAdminUser(session)) {
+  return Astro.redirect("/app");
+}
+
+const users = await listUsers();
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Admin · What About That Time</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; }
+      body {
+        font-family: system-ui, sans-serif;
+        padding: 1rem;
+        background: #fafafa;
+        color: #1a1a1a;
+      }
+      .wrap { max-width: 900px; margin: 0 auto; }
+      .header { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+      .actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+      .nav-btn, .logout-btn {
+        padding: .35rem .85rem; background: none; border: 1px solid #ccc;
+        border-radius: 4px; cursor: pointer; font: inherit; font-size: .85rem;
+        color: #555; text-decoration: none; display: inline-block;
+      }
+      .nav-btn:hover, .logout-btn:hover { background: #f0f0f0; }
+      .card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: .75rem;
+        margin-bottom: .75rem;
+      }
+      .field { display: flex; flex-direction: column; gap: .35rem; }
+      .field label { font-size: .8rem; font-weight: 600; color: #555; }
+      .field input {
+        padding: .55rem .65rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font: inherit;
+      }
+      .save-btn {
+        padding: .55rem .9rem;
+        background: #1a1a1a;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font: inherit;
+      }
+      .save-btn:hover { background: #333; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: .65rem; border-bottom: 1px solid #eee; }
+      th { background: #f0f0f0; }
+      .delete-btn {
+        border: 1px solid #f1d1d1;
+        background: #fff;
+        color: #b10000;
+        border-radius: 6px;
+        padding: .35rem .55rem;
+        cursor: pointer;
+      }
+      .delete-btn:hover { background: #fff1f1; }
+      .muted { color: #777; font-size: .9rem; }
+      .admin-pill {
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        padding: .25rem .7rem;
+        font-size: .8rem;
+        color: #555;
+        background: #fff;
+      }
+      .error {
+        color: #a10000;
+        font-size: .9rem;
+        margin-top: .5rem;
+        min-height: 1.2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="header">
+        <h1>Admin Dashboard</h1>
+        <div class="actions">
+          <span class="admin-pill">{session.fullName} (@{session.username})</span>
+          <a class="nav-btn" href="/app">Back to app</a>
+          <a class="nav-btn" href="/timeline">Timeline</a>
+          <form method="POST" action="/api/logout" style="display:contents">
+            <button class="logout-btn" type="submit">Sign out</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size:1.1rem;margin-bottom:.75rem;">Add user</h2>
+        <form id="add-user-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="username">Username</label>
+              <input id="username" name="username" required />
+            </div>
+            <div class="field">
+              <label for="fullName">Full name</label>
+              <input id="fullName" name="fullName" required />
+            </div>
+            <div class="field">
+              <label for="password">Password</label>
+              <input id="password" name="password" type="password" required minlength="8" />
+            </div>
+          </div>
+          <button class="save-btn" type="submit">Create user</button>
+          <p id="form-error" class="error"></p>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size:1.1rem;margin-bottom:.25rem;">Contributors</h2>
+        <p class="muted" style="margin-bottom:.75rem;">Bryson cannot be removed.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Full Name</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="users-body">
+            {users.map((user) => (
+              <tr>
+                <td><strong>@{user.username}</strong></td>
+                <td>{user.fullName}</td>
+                <td>
+                  {user.username === "bryson" ? (
+                    <span class="muted">Owner</span>
+                  ) : (
+                    <button class="delete-btn" data-username={user.username} type="button">Remove</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("add-user-form");
+      const formError = document.getElementById("form-error");
+      const usersBody = document.getElementById("users-body");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        formError.textContent = "";
+
+        const data = new FormData(form);
+        const body = {
+          username: String(data.get("username") || ""),
+          fullName: String(data.get("fullName") || ""),
+          password: String(data.get("password") || ""),
+        };
+
+        const response = await fetch("/api/admin/users", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          try {
+            const payload = await response.json();
+            formError.textContent = payload.error || "Unable to create user.";
+          } catch {
+            formError.textContent = "Unable to create user.";
+          }
+          return;
+        }
+
+        location.reload();
+      });
+
+      usersBody.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.classList.contains("delete-btn")) return;
+
+        const username = target.dataset.username;
+        if (!username) return;
+        if (!window.confirm(`Remove @${username}?`)) return;
+
+        const response = await fetch(`/api/admin/users/${encodeURIComponent(username)}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          let message = "Unable to remove user.";
+          try {
+            const payload = await response.json();
+            message = payload.error || message;
+          } catch {}
+          formError.textContent = message;
+          return;
+        }
+
+        location.reload();
+      });
+    </script>
+  </body>
+</html>

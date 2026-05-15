@@ -4,5 +4,6 @@ CREATE TABLE IF NOT EXISTS events (
   start_date TEXT NOT NULL,
   end_date TEXT,
   notes TEXT,
+  created_by TEXT NOT NULL DEFAULT 'unknown',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

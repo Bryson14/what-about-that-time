@@ -6,10 +6,11 @@ export interface Event {
   start_date: string;
   end_date: string | null;
   notes: string | null;
+  created_by: string;
   created_at: string;
 }
 
-export type EventCreate = Pick<Event, "title" | "start_date"> & {
+export type EventCreate = Pick<Event, "title" | "start_date" | "created_by"> & {
   end_date?: string | null;
   notes?: string | null;
 };
@@ -38,9 +39,9 @@ export async function getEventById(id: number): Promise<Event | null> {
 export async function createEvent(input: EventCreate): Promise<number> {
   const result = await db()
     .prepare(
-      "INSERT INTO events (title, start_date, end_date, notes) VALUES (?, ?, ?, ?)"
+      "INSERT INTO events (title, start_date, end_date, notes, created_by) VALUES (?, ?, ?, ?, ?)"
     )
-    .bind(input.title, input.start_date, input.end_date ?? null, input.notes ?? null)
+    .bind(input.title, input.start_date, input.end_date ?? null, input.notes ?? null, input.created_by)
     .run();
   return result.meta.last_row_id as number;
 }

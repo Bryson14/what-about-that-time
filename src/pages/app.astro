@@ -1,7 +1,8 @@
 ---
-import { isAuthenticated } from "../lib/auth";
+import { getSessionFromRequest, isAdminUser } from "../lib/auth";
 
-if (!isAuthenticated(Astro.request)) {
+const session = await getSessionFromRequest(Astro.request);
+if (!session) {
   return Astro.redirect("/login");
 }
 
@@ -12,6 +13,7 @@ import AddEventDialog from "../components/AddEventDialog.astro";
 import Toast from "../components/Toast.astro";
 
 const events = await getAllEvents();
+const isAdmin = isAdminUser(session);
 ---
 
 <html lang="en">
@@ -48,7 +50,7 @@ const events = await getAllEvents();
         gap: .75rem;
         margin-bottom: 1rem;
       }
-      .logout-btn {
+        .logout-btn {
         padding: .35rem .85rem; background: none; border: 1px solid #ccc;
         border-radius: 4px; cursor: pointer; font: inherit; font-size: .85rem; color: #555;
       }
@@ -60,6 +62,14 @@ const events = await getAllEvents();
         text-decoration: none; display: inline-block;
       }
       .nav-btn:hover { background: #f0f0f0; }
+      .user-chip {
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        padding: .3rem .75rem;
+        font-size: .8rem;
+        color: #555;
+        background: #fff;
+      }
 
       .add-fab {
         position: fixed;
@@ -105,6 +115,8 @@ const events = await getAllEvents();
       <div class="header">
         <h1>What About That Time</h1>
         <div style="display:flex;gap:.5rem;align-items:center">
+          <span class="user-chip">{session.fullName} (@{session.username})</span>
+          {isAdmin && <a href="/admin" class="nav-btn">Admin</a>}
           <a href="/timeline" class="nav-btn">Timeline view</a>
           <form method="POST" action="/api/logout" style="display:contents">
             <button class="logout-btn" type="submit">Sign out</button>
