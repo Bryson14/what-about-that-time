@@ -21,7 +21,7 @@ const events = await getAllEvents();
       body {
         font-family: system-ui, sans-serif;
         padding: 1rem;
-        max-width: 980px;
+        max-width: 100%;
         margin: 0 auto;
         background: #fafafa;
         color: #1a1a1a;
@@ -39,10 +39,12 @@ const events = await getAllEvents();
         border-radius: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,.1);
         background: #fff;
+        display: flex;
+        justify-content: center;
       }
 
       table {
-        width: 100%;
+        width: auto;
         min-width: 680px;
         border-collapse: collapse;
       }
@@ -305,11 +307,11 @@ const events = await getAllEvents();
             <input id="start_date" name="start_date" type="date" required />
           </div>
           <div class="field">
-            <label for="end_date">End Date</label>
+            <label for="end_date">End Date <em>(Optional)</em></label>
             <input id="end_date" name="end_date" type="date" />
           </div>
           <div class="field">
-            <label for="notes">Notes</label>
+            <label for="notes">Notes <em>(Optional)</em></label>
             <textarea id="notes" name="notes" rows="2"></textarea>
           </div>
         </div>
