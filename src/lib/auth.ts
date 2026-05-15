@@ -177,7 +177,7 @@ export async function createUser(username: string, password: string, fullName: s
   if (!validateUsername(normalized)) {
     return {
       ok: false,
-      error: "username must be 3-32 chars, start/end with a letter or number, and only use lowercase letters, numbers, dots, underscores, or hyphens",
+      error: "username must be 3-32 chars, start/end with a lowercase letter or number, and only use lowercase letters, numbers, dots, underscores, or hyphens",
     };
   }
   if (password.length < 8) return { ok: false, error: "password must be at least 8 characters" };
