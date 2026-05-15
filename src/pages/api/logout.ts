@@ -7,7 +7,11 @@ export const POST: APIRoute = async (context) => {
   if (found) {
     const [, token = ""] = found.trim().split("=");
     if (token) {
-      await destroySession(decodeURIComponent(token));
+      try {
+        await destroySession(decodeURIComponent(token));
+      } catch {
+        // Ignore malformed cookie values.
+      }
     }
   }
 

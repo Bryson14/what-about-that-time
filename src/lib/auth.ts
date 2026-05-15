@@ -42,7 +42,11 @@ function getCookieValue(request: Request, key: string): string | null {
   const found = cookie.split(";").find((c) => c.trim().startsWith(`${key}=`));
   if (!found) return null;
   const [, value = ""] = found.trim().split("=");
-  return decodeURIComponent(value);
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
 }
 
 function toHex(bytes: Uint8Array): string {
@@ -63,6 +67,10 @@ function validateUsername(username: string): boolean {
 }
 
 async function hashPassword(password: string, saltHex: string): Promise<string> {
+  if (!/^[a-f0-9]{32}$/i.test(saltHex)) {
+    throw new Error("invalid password salt");
+  }
+
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     encoder.encode(password),
@@ -164,7 +172,12 @@ export async function createUser(username: string, password: string, fullName: s
   const normalized = normalizeUsername(username);
   const trimmedFullName = fullName.trim();
 
-  if (!validateUsername(normalized)) return { ok: false, error: "invalid username format" };
+  if (!validateUsername(normalized)) {
+    return {
+      ok: false,
+      error: "username must be 3-32 chars using lowercase letters, numbers, dots, underscores, or hyphens",
+    };
+  }
   if (password.length < 8) return { ok: false, error: "password must be at least 8 characters" };
   if (!trimmedFullName) return { ok: false, error: "full name is required" };
 
