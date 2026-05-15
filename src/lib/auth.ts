@@ -67,7 +67,7 @@ function validateUsername(username: string): boolean {
 }
 
 async function hashPassword(password: string, saltHex: string): Promise<string> {
-  if (!/^[a-f0-9]{32}$/i.test(saltHex)) {
+  if (!/^[a-f0-9]{32}$/.test(saltHex)) {
     throw new Error("invalid password salt: expected 32-character hexadecimal string");
   }
 
