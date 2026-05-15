@@ -6,7 +6,53 @@ if (!isAuthenticated(Astro.request)) {
 }
 
 import { getAllEvents } from "../lib/db";
+import type { Event } from "../lib/db";
+import { createTable, createColumnHelper, getCoreRowModel } from "@tanstack/table-core";
+
 const events = await getAllEvents();
+
+const columnHelper = createColumnHelper<Event>();
+
+const columns = [
+  columnHelper.accessor("title", { header: "Title" }),
+  columnHelper.accessor("start_date", { header: "Start" }),
+  columnHelper.accessor("end_date", { header: "End" }),
+  columnHelper.accessor("notes", { header: "Notes" }),
+  columnHelper.display({ id: "actions", header: "" }),
+];
+
+const table = createTable({
+  columns,
+  data: events,
+  getCoreRowModel: getCoreRowModel(),
+  state: {
+    columnVisibility: {},
+    columnOrder: [],
+    columnPinning: { left: [], right: [] },
+    rowPinning: { top: [], bottom: [] },
+    columnFilters: [],
+    globalFilter: undefined,
+    sorting: [],
+    grouping: [],
+    expanded: {},
+    columnSizing: {},
+    columnSizingInfo: {
+      startOffset: null,
+      startSize: null,
+      deltaOffset: null,
+      deltaPercentage: null,
+      isResizingColumn: false,
+      columnSizingStart: [],
+    },
+    pagination: { pageIndex: 0, pageSize: 10 },
+    rowSelection: {},
+  },
+  onStateChange: () => {},
+});
+
+const headerGroups = table.getHeaderGroups();
+const rows = table.getRowModel().rows;
+const colCount = headerGroups[0]?.headers.length ?? 5;
 ---
 
 <html lang="en">
@@ -258,32 +304,44 @@ const events = await getAllEvents();
       <div class="table-shell">
         <table>
           <thead>
-            <tr>
-              <th>Title</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>Notes</th>
-              <th></th>
-            </tr>
+            {headerGroups.map(headerGroup => (
+              <tr>
+                {headerGroup.headers.map(header => (
+                  <th>{header.column.columnDef.header as string}</th>
+                ))}
+              </tr>
+            ))}
           </thead>
           <tbody>
-            {events.length === 0 && (
-              <tr><td colspan="5" class="empty">No events yet</td></tr>
+            {rows.length === 0 && (
+              <tr><td colspan={colCount} class="empty">No events yet</td></tr>
             )}
-            {events.map((event) => (
-              <tr data-id={event.id}>
-                <td><strong>{event.title}</strong></td>
-                <td>{event.start_date}</td>
-                <td>{event.end_date ?? "—"}</td>
-                <td class="notes">{event.notes ?? ""}</td>
-                <td class="actions">
-                  <div class="menu">
-                    <button class="menu-trigger" type="button" aria-label="Open actions menu">⋯</button>
-                    <div class="menu-panel" hidden>
-                      <button class="delete" data-id={event.id} type="button">Delete</button>
-                    </div>
-                  </div>
-                </td>
+            {rows.map(row => (
+              <tr data-id={row.original.id}>
+                {row.getVisibleCells().map(cell => {
+                  if (cell.column.id === "actions") {
+                    return (
+                      <td class="actions">
+                        <div class="menu">
+                          <button class="menu-trigger" type="button" aria-label="Open actions menu">⋯</button>
+                          <div class="menu-panel" hidden>
+                            <button class="delete" data-id={row.original.id} type="button">Delete</button>
+                          </div>
+                        </div>
+                      </td>
+                    );
+                  }
+                  if (cell.column.id === "title") {
+                    return <td><strong>{cell.getValue() as string}</strong></td>;
+                  }
+                  if (cell.column.id === "notes") {
+                    return <td class="notes">{(cell.getValue() as string) ?? ""}</td>;
+                  }
+                  if (cell.column.id === "end_date") {
+                    return <td>{(cell.getValue() as string) ?? "—"}</td>;
+                  }
+                  return <td>{cell.getValue() as string}</td>;
+                })}
               </tr>
             ))}
           </tbody>
