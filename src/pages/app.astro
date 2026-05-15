@@ -23,22 +23,28 @@ const { results: events } = await db
 
       body {
         font-family: system-ui, sans-serif;
-        padding: 2rem;
-        max-width: 960px;
+        padding: 1rem;
+        max-width: 980px;
         margin: 0 auto;
         background: #fafafa;
         color: #1a1a1a;
       }
 
-      h1 { margin-bottom: 1.5rem; }
+      h1 { margin-bottom: .5rem; }
+
+      .content { padding-bottom: 4rem; }
+
+      .table-shell {
+        overflow-x: auto;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        background: #fff;
+      }
 
       table {
         width: 100%;
+        min-width: 680px;
         border-collapse: collapse;
-        background: #fff;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0,0,0,.1);
       }
 
       th, td {
@@ -57,39 +63,67 @@ const { results: events } = await db
 
       .notes { color: #555; font-size: .9em; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-      .actions { display: flex; gap: .5rem; }
-      .actions button {
-        background: none; border: 1px solid #ccc; border-radius: 4px;
-        padding: .25rem .5rem; cursor: pointer; font-size: .85em;
+      .actions {
+        width: 68px;
+        position: relative;
       }
-      .actions button:hover { background: #f0f0f0; }
-      .actions .delete { color: #c00; border-color: #c00; }
-      .actions .delete:hover { background: #ffe0e0; }
 
-      .add-form {
-        margin-top: 2rem;
-        padding: 1.5rem;
+      .menu {
+        position: relative;
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .menu-trigger {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        border: 1px solid #d7d7d7;
         background: #fff;
+        cursor: pointer;
+        font-size: 1.15rem;
+        line-height: 1;
+      }
+      .menu-trigger:hover { background: #f5f5f5; }
+
+      .menu-panel {
+        position: absolute;
+        top: calc(100% + .25rem);
+        right: 0;
+        min-width: 120px;
+        padding: .35rem;
+        border: 1px solid #e5e5e5;
         border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        background: #fff;
+        box-shadow: 0 8px 20px rgba(0,0,0,.12);
+        z-index: 20;
       }
 
-      .add-form h2 { margin-bottom: 1rem; font-size: 1.1rem; }
+      .menu-panel .delete {
+        width: 100%;
+        text-align: left;
+        background: #fff;
+        border: 1px solid #f1d1d1;
+        color: #b10000;
+        border-radius: 6px;
+        padding: .45rem .55rem;
+        cursor: pointer;
+        font-size: .85rem;
+      }
+      .menu-panel .delete:hover { background: #fff1f1; }
 
-      .form-row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: end; }
-
-      .field { display: flex; flex-direction: column; gap: .25rem; }
+      .field { display: flex; flex-direction: column; gap: .3rem; }
       .field label { font-size: .8rem; font-weight: 600; color: #555; }
       .field input, .field textarea {
         padding: .5rem; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: .9rem;
       }
       .field textarea { resize: vertical; }
 
-      .add-form button {
-        padding: .5rem 1rem; background: #1a1a1a; color: #fff;
+      .save-btn {
+        padding: .6rem 1rem; background: #1a1a1a; color: #fff;
         border: none; border-radius: 4px; cursor: pointer; font: inherit;
       }
-      .add-form button:hover { background: #333; }
+      .save-btn:hover { background: #333; }
 
       .toast {
         position: fixed; bottom: 1rem; right: 1rem;
@@ -100,7 +134,13 @@ const { results: events } = await db
       .toast.error { background: #c00; }
       .toast.success { background: #2a7; }
 
-      .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+      .header {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: .75rem;
+        margin-bottom: 1rem;
+      }
       .logout-btn {
         padding: .35rem .85rem; background: none; border: 1px solid #ccc;
         border-radius: 4px; cursor: pointer; font: inherit; font-size: .85rem; color: #555;
@@ -113,81 +153,209 @@ const { results: events } = await db
         text-decoration: none; display: inline-block;
       }
       .nav-btn:hover { background: #f0f0f0; }
+
+      dialog.event-dialog {
+        margin: auto;
+        border: none;
+        border-radius: 12px;
+        padding: 1rem;
+        width: min(100% - 1.5rem, 420px);
+        box-shadow: 0 16px 40px rgba(0,0,0,.26);
+      }
+
+      dialog.event-dialog::backdrop { background: rgba(0,0,0,.45); }
+
+      .dialog-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: .9rem;
+      }
+      .dialog-head h2 { font-size: 1.05rem; }
+
+      .icon-btn {
+        border: 1px solid #d0d0d0;
+        background: #fff;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        font-size: 1.1rem;
+        cursor: pointer;
+      }
+      .icon-btn:hover { background: #f5f5f5; }
+
+      .form-grid {
+        display: grid;
+        gap: .8rem;
+      }
+
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: .45rem;
+        margin-top: .9rem;
+      }
+
+      .cancel-btn {
+        border: 1px solid #d0d0d0;
+        background: #fff;
+        color: #444;
+        border-radius: 4px;
+        padding: .6rem .9rem;
+        font: inherit;
+        cursor: pointer;
+      }
+      .cancel-btn:hover { background: #f5f5f5; }
+
+      .add-fab {
+        position: fixed;
+        top: max(.85rem, env(safe-area-inset-top));
+        right: max(.85rem, env(safe-area-inset-right));
+        width: 3rem;
+        height: 3rem;
+        border: none;
+        border-radius: 999px;
+        background: #1a1a1a;
+        color: #fff;
+        font-size: 1.8rem;
+        line-height: 1;
+        cursor: pointer;
+        box-shadow: 0 10px 28px rgba(0,0,0,.28);
+      }
+      .add-fab:hover { background: #333; }
+
+      @media (min-width: 768px) {
+        body { padding: 2rem; }
+        .header {
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
+        }
+        .add-fab {
+          top: 1.25rem;
+          right: 1.25rem;
+        }
+      }
     </style>
   </head>
   <body>
-    <div class="header">
-      <h1>What About That Time</h1>
-      <div style="display:flex;gap:.5rem;align-items:center">
-        <a href="/timeline" class="nav-btn">Timeline view</a>
-        <form method="POST" action="/api/logout" style="display:contents">
-          <button class="logout-btn" type="submit">Sign out</button>
-        </form>
+    <button id="open-add" class="add-fab" type="button" aria-label="Add event">+</button>
+
+    <div class="content">
+      <div class="header">
+        <h1>What About That Time</h1>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <a href="/timeline" class="nav-btn">Timeline view</a>
+          <form method="POST" action="/api/logout" style="display:contents">
+            <button class="logout-btn" type="submit">Sign out</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.length === 0 && (
+              <tr><td colspan="5" class="empty">No events yet</td></tr>
+            )}
+            {events.map((event) => (
+              <tr data-id={event.id}>
+                <td><strong>{event.title}</strong></td>
+                <td>{event.start_date}</td>
+                <td>{event.end_date ?? "—"}</td>
+                <td class="notes">{event.notes ?? ""}</td>
+                <td class="actions">
+                  <div class="menu">
+                    <button class="menu-trigger" type="button" aria-label="Open actions menu">⋯</button>
+                    <div class="menu-panel" hidden>
+                      <button class="delete" data-id={event.id} type="button">Delete</button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Start</th>
-          <th>End</th>
-          <th>Notes</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {events.length === 0 && (
-          <tr><td colspan="5" class="empty">No events yet</td></tr>
-        )}
-        {events.map((event) => (
-          <tr data-id={event.id}>
-            <td><strong>{event.title}</strong></td>
-            <td>{event.start_date}</td>
-            <td>{event.end_date ?? "—"}</td>
-            <td class="notes">{event.notes ?? ""}</td>
-            <td class="actions">
-              <button class="delete" data-id={event.id}>Delete</button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-
-    <div class="add-form">
-      <h2>Add Event</h2>
-      <form id="event-form" class="form-row">
-        <div class="field">
-          <label for="title">Title</label>
-          <input id="title" name="title" required />
+    <dialog id="add-dialog" class="event-dialog">
+      <form id="event-form" method="dialog">
+        <div class="dialog-head">
+          <h2>Add Event</h2>
+          <button id="close-dialog" class="icon-btn" type="button" aria-label="Close">×</button>
         </div>
-        <div class="field">
-          <label for="start_date">Start Date</label>
-          <input id="start_date" name="start_date" type="date" required />
+        <div class="form-grid">
+          <div class="field">
+            <label for="title">Title</label>
+            <input id="title" name="title" required />
+          </div>
+          <div class="field">
+            <label for="start_date">Start Date</label>
+            <input id="start_date" name="start_date" type="date" required />
+          </div>
+          <div class="field">
+            <label for="end_date">End Date</label>
+            <input id="end_date" name="end_date" type="date" />
+          </div>
+          <div class="field">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" rows="2"></textarea>
+          </div>
         </div>
-        <div class="field">
-          <label for="end_date">End Date</label>
-          <input id="end_date" name="end_date" type="date" />
+        <div class="dialog-actions">
+          <button id="cancel-dialog" class="cancel-btn" type="button">Cancel</button>
+          <button class="save-btn" type="submit">Add</button>
         </div>
-        <div class="field">
-          <label for="notes">Notes</label>
-          <textarea id="notes" name="notes" rows="1"></textarea>
-        </div>
-        <button type="submit">Add</button>
       </form>
-    </div>
+    </dialog>
 
     <div id="toast" class="toast"></div>
 
     <script>
       const form = document.getElementById("event-form");
       const toast = document.getElementById("toast");
+      const addDialog = document.getElementById("add-dialog");
+      const openAddButton = document.getElementById("open-add");
+      const closeDialogButton = document.getElementById("close-dialog");
+      const cancelDialogButton = document.getElementById("cancel-dialog");
+      const tableBody = document.querySelector("tbody");
 
       function showToast(message, type = "success") {
         toast.textContent = message;
         toast.className = `toast ${type} show`;
         setTimeout(() => toast.classList.remove("show"), 3000);
       }
+
+      function openAddDialog() {
+        if (typeof addDialog.showModal === "function") {
+          addDialog.showModal();
+        } else {
+          addDialog.setAttribute("open", "");
+        }
+      }
+
+      function closeAddDialog() {
+        if (typeof addDialog.close === "function") {
+          addDialog.close();
+        } else {
+          addDialog.removeAttribute("open");
+        }
+      }
+
+      openAddButton.addEventListener("click", openAddDialog);
+      closeDialogButton.addEventListener("click", closeAddDialog);
+      cancelDialogButton.addEventListener("click", closeAddDialog);
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -206,12 +374,31 @@ const { results: events } = await db
           return;
         }
 
+        closeAddDialog();
         location.reload();
       });
 
-      document.querySelector("tbody").addEventListener("click", async (e) => {
-        if (!e.target.classList.contains("delete")) return;
-        const id = e.target.dataset.id;
+      function closeMenus() {
+        document.querySelectorAll(".menu-panel").forEach((panel) => {
+          panel.hidden = true;
+        });
+      }
+
+      tableBody.addEventListener("click", async (e) => {
+        const target = e.target;
+
+        if (target.classList.contains("menu-trigger")) {
+          const panel = target.nextElementSibling;
+          const wasOpen = !panel.hidden;
+          closeMenus();
+          panel.hidden = wasOpen;
+          return;
+        }
+
+        if (!target.classList.contains("delete")) return;
+        const id = target.dataset.id;
+
+        if (!window.confirm("Delete this event?")) return;
 
         const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
         if (!res.ok) {
@@ -220,6 +407,12 @@ const { results: events } = await db
         }
 
         location.reload();
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(".menu")) {
+          closeMenus();
+        }
       });
     </script>
   </body>
