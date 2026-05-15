@@ -124,7 +124,7 @@ const users = await listUsers();
             </div>
             <div class="field">
               <label for="password">Password</label>
-              <input id="password" name="password" type="password" required minlength="8" />
+              <input id="password" name="password" type="password" required minlength="8" maxlength="128" />
             </div>
           </div>
           <button class="save-btn" type="submit">Create user</button>
