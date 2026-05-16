@@ -205,14 +205,7 @@ try {
           ? `<div class="menu">
               <button class="menu-trigger" type="button" aria-label="Open actions menu">⋯</button>
               <div class="menu-panel" hidden>
-                <button class="edit"
-                  data-id="${ev.id}"
-                  data-title="${escapeHtml(ev.title)}"
-                  data-start="${ev.start_date}"
-                  data-end="${ev.end_date ?? ""}"
-                  data-group="${escapeHtml(ev.group_name)}"
-                  data-notes="${escapeHtml(ev.notes ?? "")}"
-                  type="button">Edit</button>
+                <button class="edit" data-id="${ev.id}" type="button">Edit</button>
                 <button class="delete" data-id="${ev.id}" type="button">Delete</button>
               </div>
             </div>`
@@ -303,15 +296,21 @@ try {
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         const data = new FormData(form);
-        const body = Object.fromEntries(data.entries());
-        const eventId = body.event_id as string | undefined;
+        const rawBody = Object.fromEntries(data.entries());
+        const eventId = rawBody.event_id as string | undefined;
+
+        const body: Record<string, string> = {};
+        for (const [key, value] of Object.entries(rawBody)) {
+          if (typeof value === "string" && value.trim() === "") continue;
+          if (key === "event_id") continue;
+          body[key] = value as string;
+        }
 
         let url = "/api/events";
         let method = "POST";
         if (eventId) {
           url = "/api/events/" + eventId;
           method = "PUT";
-          delete body.event_id;
         }
 
         const res = await fetch(url, {
@@ -331,10 +330,13 @@ try {
         form.reset();
         const eventIdInput = form.querySelector('input[name="event_id"]') as HTMLInputElement | null;
         if (eventIdInput) eventIdInput.remove();
-        appState.page = 1;
-        appState.search = "";
-        if (searchInput) searchInput.value = "";
+        if (!eventId) {
+          appState.page = 1;
+          appState.search = "";
+          if (searchInput) searchInput.value = "";
+        }
         await fetchEvents();
+        showToast(eventId ? "Event updated" : "Event added");
       });
 
       if (searchInput) {
@@ -387,15 +389,24 @@ try {
 
         if (target.classList.contains("edit")) {
           closeMenus();
-          const editData = {
-            id: Number(target.dataset.id),
-            title: target.dataset.title || "",
-            start_date: target.dataset.start || "",
-            end_date: target.dataset.end || null,
-            group_name: target.dataset.group || "",
-            notes: target.dataset.notes || null,
-          };
-          openEditDialog(editData);
+          const row = target.closest("tr") as HTMLTableRowElement;
+          if (!row) return;
+          const cells = row.querySelectorAll("td");
+          const id = Number(target.dataset.id);
+          const title = cells[0]?.querySelector("strong")?.textContent?.trim() || "";
+          const startDate = cells[1]?.textContent?.trim() || "";
+          const endText = cells[2]?.textContent?.trim() || "";
+          const group = cells[3]?.textContent?.trim() || "";
+          const notesEl = row.querySelector("td.notes");
+          const notes = notesEl?.textContent?.trim() || null;
+          openEditDialog({
+            id,
+            title,
+            start_date: startDate,
+            end_date: endText === "—" ? null : endText || null,
+            group_name: group,
+            notes,
+          });
           return;
         }
 
