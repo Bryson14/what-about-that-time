@@ -128,6 +128,8 @@
   function closeMenus() {
     openMenuId = null;
   }
+
+  const MAX_NOTE_PREVIEW_LENGTH = 50;
 </script>
 
 <svelte:window onclick={() => { if (openMenuId !== null) closeMenus(); }} />
@@ -219,12 +221,12 @@
           {/if}
         </div>
         {#if ev.notes}
-          <p class="card-notes">{ev.notes.length > 50 ? ev.notes.slice(0, 50) + '…' : ev.notes}</p>
+          <p class="card-notes">{ev.notes.length > MAX_NOTE_PREVIEW_LENGTH ? ev.notes.slice(0, MAX_NOTE_PREVIEW_LENGTH) + '…' : ev.notes}</p>
         {/if}
         <div class="card-meta">
-          <span class="meta-item">👤 {ev.created_by}</span>
-          <span class="meta-item">📁 {ev.group_name}</span>
-          <span class="meta-item">📅 {ev.start_date}{ev.end_date ? ` – ${ev.end_date}` : ''}</span>
+          <span class="meta-item" aria-label="Added by: {ev.created_by}">👤 {ev.created_by}</span>
+          <span class="meta-item" aria-label="Group: {ev.group_name}">📁 {ev.group_name}</span>
+          <span class="meta-item" aria-label="Date: {ev.start_date}{ev.end_date ? ` to ${ev.end_date}` : ''}">📅 {ev.start_date}{ev.end_date ? ` – ${ev.end_date}` : ''}</span>
         </div>
       </div>
     {/each}
