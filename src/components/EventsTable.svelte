@@ -197,6 +197,40 @@
   </table>
 </div>
 
+<div class="card-list">
+  {#if rows.length === 0}
+    <p class="empty-cards">{search ? 'No matching events' : 'No events yet'}</p>
+  {:else}
+    {#each rows as row (row.original.id)}
+      {@const ev = row.original}
+      <div class="event-card">
+        <div class="card-header">
+          <strong class="card-title">{ev.title}</strong>
+          {#if canModify(ev.created_by)}
+            <div class="menu">
+              <button class="menu-trigger" type="button" onclick={(e) => { e.stopPropagation(); toggleMenu(ev.id); }} aria-label="Open actions menu">⋯</button>
+              {#if openMenuId === ev.id}
+                <div class="menu-panel" onclick={(e) => e.stopPropagation()}>
+                  <button class="edit" type="button" onclick={() => { closeMenus(); onEdit(ev); }}>Edit</button>
+                  <button class="delete" type="button" onclick={() => { closeMenus(); onDelete(ev.id, ev.title); }}>Delete</button>
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+        {#if ev.notes}
+          <p class="card-notes">{ev.notes.length > 50 ? ev.notes.slice(0, 50) + '…' : ev.notes}</p>
+        {/if}
+        <div class="card-meta">
+          <span class="meta-item">👤 {ev.created_by}</span>
+          <span class="meta-item">📁 {ev.group_name}</span>
+          <span class="meta-item">📅 {ev.start_date}{ev.end_date ? ` – ${ev.end_date}` : ''}</span>
+        </div>
+      </div>
+    {/each}
+  {/if}
+</div>
+
 <div class="pagination">
   <button class="page-btn" onclick={() => onPageChange(page - 1)} disabled={page <= 1} aria-label="Previous page">&laquo;</button>
   {#each pageNumbers as p}
@@ -298,6 +332,73 @@
   .page-ellipsis {
     padding: .35rem .25rem;
     color: #999;
+  }
+
+  /* Mobile: hide table, show cards */
+  @media (max-width: 767px) {
+    .table-shell { display: none; }
+  }
+
+  /* Desktop: hide cards, show table */
+  @media (min-width: 768px) {
+    .card-list { display: none; }
+  }
+
+  .card-list {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+  }
+
+  .event-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    padding: .75rem .85rem;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .5rem;
+    margin-bottom: .35rem;
+  }
+
+  .card-title {
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+
+  .card-notes {
+    font-size: .85rem;
+    color: #555;
+    margin: 0 0 .45rem;
+    line-height: 1.4;
+  }
+
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem .6rem;
+  }
+
+  .meta-item {
+    font-size: .72rem;
+    color: #777;
+    background: #f3f3f3;
+    border-radius: 4px;
+    padding: .15rem .35rem;
+    white-space: nowrap;
+  }
+
+  .empty-cards {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #888;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
   }
 
   .actions {
