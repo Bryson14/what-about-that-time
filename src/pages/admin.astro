@@ -3,6 +3,8 @@ import { getSessionFromRequest, isAdminUser, listUsers } from "../lib/auth";
 import { logger } from "../lib/logging";
 import type { UserSummary } from "../lib/auth";
 
+const FAMILIES = ["Adams Family", "Meiling Family"]
+
 const session = await getSessionFromRequest(Astro.request);
 if (!session) {
   return Astro.redirect("/login");
@@ -75,7 +77,7 @@ try {
       }
       .save-btn:hover { background: #333; }
       table { width: 100%; border-collapse: collapse; }
-      th, td { text-align: left; padding: .65rem; border-bottom: 1px solid #eee; }
+      th, td { text-align: left; padding: .65rem; border-bottom: 1px solid #eee; font-size: .9rem; }
       th { background: #f0f0f0; }
       .delete-btn {
         border: 1px solid #f1d1d1;
@@ -86,6 +88,16 @@ try {
         cursor: pointer;
       }
       .delete-btn:hover { background: #fff1f1; }
+      .edit-btn {
+        border: 1px solid #d0d0d0;
+        background: #fff;
+        color: #333;
+        border-radius: 6px;
+        padding: .35rem .55rem;
+        cursor: pointer;
+        margin-right: .25rem;
+      }
+      .edit-btn:hover { background: #f0f0f0; }
       .muted { color: #777; font-size: .9rem; }
       .admin-pill {
         border: 1px solid #ddd;
@@ -100,6 +112,46 @@ try {
         font-size: .9rem;
         margin-top: .5rem;
         min-height: 1.2rem;
+      }
+      .group-chip {
+        display: inline-block;
+        border: 1px solid #e0e0e0;
+        border-radius: 999px;
+        padding: .15rem .55rem;
+        font-size: .8rem;
+        margin: .1rem .15rem .1rem 0;
+        background: #f8f8f8;
+        color: #444;
+      }
+      .group-edit-row { display: none; align-items: center; gap: .35rem; }
+      .group-edit-row input {
+        padding: .35rem .5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font: inherit;
+        font-size: .85rem;
+        width: 180px;
+      }
+      .group-edit-row.active { display: flex; }
+      .group-display-row.hidden { display: none; }
+      .group-save-btn {
+        padding: .35rem .6rem;
+        background: #1a1a1a;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font: inherit;
+        font-size: .8rem;
+      }
+      .group-cancel-btn {
+        padding: .35rem .6rem;
+        background: none;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        font: inherit;
+        font-size: .8rem;
       }
     </style>
   </head>
@@ -133,6 +185,13 @@ try {
               <label for="password">Password</label>
               <input id="password" name="password" type="password" required minlength="8" maxlength="128" />
             </div>
+            <div class="field">
+              <label for="allowedGroups">Allowed group</label>
+              <input id="allowedGroups" list="group-list" name="allowedGroups" />
+              <datalist id="group-list">
+                {FAMILIES.map(family => <option value={family} />)}
+              </datalist>
+            </div>
           </div>
           <button class="save-btn" type="submit">Create user</button>
           <p id="form-error" class="error"></p>
@@ -147,19 +206,37 @@ try {
             <tr>
               <th>Username</th>
               <th>Full Name</th>
+              <th>Allowed Groups</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="users-body">
             {users.map((user) => (
-              <tr>
+              <tr data-username={user.username}>
                 <td><strong>@{user.username}</strong></td>
                 <td>{user.fullName}</td>
+                <td>
+                  <div class="group-display-row" data-role={user.role}>
+                    {user.allowedGroups?.map((g) => (
+                      <span class="group-chip">{g}</span>
+                    ))}
+                  </div>
+                  {user.role !== "admin" && (
+                    <div class="group-edit-row">
+                      <input type="text" value={user.allowedGroups?.join(", ")} data-username={user.username} class="group-edit-input" />
+                      <button class="group-save-btn" type="button" data-username={user.username}>Save</button>
+                      <button class="group-cancel-btn" type="button">Cancel</button>
+                    </div>
+                  )}
+                </td>
                 <td>
                   {user.role === "admin" ? (
                     <span class="muted">Owner</span>
                   ) : (
-                    <button class="delete-btn" data-username={user.username} type="button">Remove</button>
+                    <>
+                      <button class="edit-btn" data-username={user.username} type="button">Edit</button>
+                      <button class="delete-btn" data-username={user.username} type="button">Remove</button>
+                    </>
                   )}
                 </td>
               </tr>
@@ -179,10 +256,17 @@ try {
         formError.textContent = "";
 
         const data = new FormData(form);
+        const groupsInput = String(data.get("allowedGroups") || "default").trim();
+        const allowedGroups = groupsInput
+          .split(",")
+          .map((g) => g.trim())
+          .filter((g) => g.length > 0);
+
         const body = {
           username: String(data.get("username") || ""),
           fullName: String(data.get("fullName") || ""),
           password: String(data.get("password") || ""),
+          allowedGroups: allowedGroups.length > 0 ? allowedGroups : ["default"],
         };
 
         const response = await fetch("/api/admin/users", {
@@ -205,29 +289,89 @@ try {
       });
 
       usersBody.addEventListener("click", async (event) => {
-        const target = event.target;
+        const target = event.target as HTMLElement;
         if (!(target instanceof HTMLElement)) return;
-        if (!target.classList.contains("delete-btn")) return;
 
-        const username = target.dataset.username;
-        if (!username) return;
-        if (!window.confirm(`Remove @${username}?`)) return;
+        if (target.classList.contains("delete-btn")) {
+          const username = target.dataset.username;
+          if (!username) return;
+          if (!window.confirm(`Remove @${username}?`)) return;
 
-        const response = await fetch(`/api/admin/users/${encodeURIComponent(username)}`, {
-          method: "DELETE",
-        });
+          const response = await fetch(`/api/admin/users/${encodeURIComponent(username)}`, {
+            method: "DELETE",
+          });
 
-        if (!response.ok) {
-          let message = "Unable to remove user.";
-          try {
-            const payload = await response.json();
-            message = payload.error || message;
-          } catch {}
-          formError.textContent = message;
-          return;
+          if (!response.ok) {
+            let message = "Unable to remove user.";
+            try {
+              const payload = await response.json();
+              message = payload.error || message;
+            } catch {}
+            formError.textContent = message;
+            return;
+          }
+
+          location.reload();
         }
 
-        location.reload();
+        if (target.classList.contains("edit-btn")) {
+          const username = target.dataset.username;
+          if (!username) return;
+          const row = target.closest("tr");
+          if (!row) return;
+          const displayRow = row.querySelector(".group-display-row") as HTMLElement;
+          const editRow = row.querySelector(".group-edit-row") as HTMLElement;
+          if (displayRow) displayRow.classList.add("hidden");
+          if (editRow) editRow.classList.add("active");
+        }
+
+        if (target.classList.contains("group-cancel-btn")) {
+          const row = target.closest("tr");
+          if (!row) return;
+          const displayRow = row.querySelector(".group-display-row") as HTMLElement;
+          const editRow = row.querySelector(".group-edit-row") as HTMLElement;
+          if (displayRow) displayRow.classList.remove("hidden");
+          if (editRow) editRow.classList.remove("active");
+        }
+
+        if (target.classList.contains("group-save-btn")) {
+          const username = target.dataset.username;
+          if (!username) return;
+          const row = target.closest("tr");
+          if (!row) return;
+          const input = row.querySelector(".group-edit-input") as HTMLInputElement;
+          if (!input) return;
+
+          const groupsInput = input.value.trim();
+          const allowedGroups = groupsInput
+            .split(",")
+            .map((g) => g.trim())
+            .filter((g) => g.length > 0);
+
+          if (allowedGroups.length === 0) {
+            formError.textContent = "At least one group is required.";
+            return;
+          }
+
+          formError.textContent = "";
+          const response = await fetch(`/api/admin/users/${encodeURIComponent(username)}`, {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ allowedGroups }),
+          });
+
+          if (!response.ok) {
+            let message = "Unable to update groups.";
+            try {
+              const payload = await response.json();
+              message = payload.error || message;
+            } catch {}
+            formError.textContent = message;
+            return;
+          }
+
+          location.reload();
+        }
       });
     </script>
   </body>

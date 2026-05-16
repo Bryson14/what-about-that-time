@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getEventById, updateEvent, deleteEvent } from "../../../lib/db";
 import { updateEventSchema } from "../../../lib/validation";
-import { getSessionFromRequest } from "../../../lib/auth";
+import { getSessionFromRequest, isAdminUser } from "../../../lib/auth";
 import { logger } from "../../../lib/logging";
 
 export const PUT: APIRoute = async (context) => {
@@ -33,6 +33,30 @@ export const PUT: APIRoute = async (context) => {
       logger.warn("event not found for update", { username: session.username, eventId: String(id) });
       return new Response(JSON.stringify({ error: "event not found" }), {
         status: 404,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    if (!isAdminUser(session) && !session.allowedGroups.includes(existing.group_name)) {
+      logger.warn("event update blocked for unauthorized group", {
+        username: session.username,
+        eventId: String(id),
+        group_name: existing.group_name,
+      });
+      return new Response(JSON.stringify({ error: "you do not have access to this event" }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    if (parsed.data.group_name !== undefined && !isAdminUser(session) && !session.allowedGroups.includes(parsed.data.group_name)) {
+      logger.warn("event update blocked for unauthorized target group", {
+        username: session.username,
+        eventId: String(id),
+        group_name: parsed.data.group_name,
+      });
+      return new Response(JSON.stringify({ error: "you do not have access to this group" }), {
+        status: 403,
         headers: { "content-type": "application/json" },
       });
     }
@@ -72,6 +96,18 @@ export const DELETE: APIRoute = async (context) => {
       logger.warn("event not found for deletion", { username: session.username, eventId: String(id) });
       return new Response(JSON.stringify({ error: "event not found" }), {
         status: 404,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    if (!isAdminUser(session) && !session.allowedGroups.includes(existing.group_name)) {
+      logger.warn("event deletion blocked for unauthorized group", {
+        username: session.username,
+        eventId: String(id),
+        group_name: existing.group_name,
+      });
+      return new Response(JSON.stringify({ error: "you do not have access to this event" }), {
+        status: 403,
         headers: { "content-type": "application/json" },
       });
     }

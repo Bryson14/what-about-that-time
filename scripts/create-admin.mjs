@@ -48,6 +48,7 @@ const passwordHash = toHex(crypto.pbkdf2Sync(password, saltBytes, ITERATIONS, KE
 const payload = JSON.stringify({
   fullName: fullName.trim(),
   role: "admin",
+  allowedGroups: ["Adams Family"],
   passwordHash,
   salt,
 });
@@ -56,7 +57,7 @@ const remoteFlag = isRemote ? " --remote" : "";
 
 console.log(`Creating admin user: ${normalized}`);
 execSync(
-  `npx wrangler kv key put --namespace-id 272207359105404bb8d60f29ffb626ca "user:${normalized}" '${payload}'${remoteFlag}`,
+  `npx wrangler kv key put --binding SESSION "user:${normalized}" '${payload}'${remoteFlag}`,
   { stdio: "inherit" }
 );
 

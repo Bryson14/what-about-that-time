@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { getAllEvents, createEvent } from "../../lib/db";
-import { createEventSchema } from "../../lib/validation";
-import { getSessionFromRequest } from "../../lib/auth";
+import { createEvent, getPaginatedEvents } from "../../lib/db";
+import { createEventSchema, paginationSchema } from "../../lib/validation";
+import { getSessionFromRequest, isAdminUser } from "../../lib/auth";
 import { logger } from "../../lib/logging";
 
 export const GET: APIRoute = async (context) => {
@@ -12,8 +12,21 @@ export const GET: APIRoute = async (context) => {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const events = await getAllEvents();
-    return new Response(JSON.stringify(events), {
+    const parsed = paginationSchema.safeParse(
+      Object.fromEntries(context.url.searchParams.entries())
+    );
+
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: "invalid pagination parameters" }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    const { page, pageSize, search } = parsed.data;
+    const groups = isAdminUser(session) ? undefined : session.allowedGroups;
+    const result = await getPaginatedEvents(page, pageSize, search, groups);
+    return new Response(JSON.stringify(result), {
       headers: { "content-type": "application/json" },
     });
   } catch (err) {
@@ -47,7 +60,20 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    const id = await createEvent({ ...parsed.data, created_by: session.username });
+    const { group_name, ...rest } = parsed.data;
+
+    if (!isAdminUser(session) && !session.allowedGroups.includes(group_name)) {
+      logger.warn("event creation blocked for unauthorized group", {
+        username: session.username,
+        group_name,
+      });
+      return new Response(JSON.stringify({ error: "you do not have access to this group" }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    const id = await createEvent({ ...rest, created_by: session.username, group_name });
     logger.info("event created", { username: session.username, id: String(id) });
 
     return new Response(JSON.stringify({ id }), {

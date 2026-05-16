@@ -5,8 +5,12 @@ import ActionsMenu from "./ActionsMenu.astro";
 
 export interface Props {
   events: Event[];
+  total: number;
+  page: number;
+  pageSize: number;
+  search: string;
 }
-const { events } = Astro.props;
+const { events, total, page, pageSize, search } = Astro.props;
 
 const columnHelper = createColumnHelper<Event>();
 
@@ -14,6 +18,7 @@ const columns = [
   columnHelper.accessor("title", { header: "Title" }),
   columnHelper.accessor("start_date", { header: "Start" }),
   columnHelper.accessor("end_date", { header: "End" }),
+  columnHelper.accessor("group_name", { header: "Group" }),
   columnHelper.accessor("created_by", { header: "Added By" }),
   columnHelper.accessor("notes", { header: "Notes" }),
   columnHelper.display({ id: "actions", header: "" }),
@@ -51,8 +56,35 @@ const table = createTable({
 
 const headerGroups = table.getHeaderGroups();
 const rows = table.getRowModel().rows;
-const colCount = headerGroups[0]?.headers.length ?? 6;
+const colCount = headerGroups[0]?.headers.length ?? 7;
+const totalPages = Math.ceil(total / pageSize) || 1;
+const startEntry = total === 0 ? 0 : (page - 1) * pageSize + 1;
+const endEntry = Math.min(page * pageSize, total);
+
+const pageNumbers: (number | "…")[] = [];
+for (let p = 1; p <= totalPages; p++) {
+  if (totalPages <= 7 || p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
+    pageNumbers.push(p);
+  } else if (pageNumbers[pageNumbers.length - 1] !== "…") {
+    pageNumbers.push("…");
+  }
+}
+
+const nextBtnDisabled = page >= totalPages;
+const prevBtnDisabled = page <= 1;
 ---
+
+<div class="table-toolbar">
+  <input
+    id="table-search"
+    type="search"
+    placeholder="Search events..."
+    value={search}
+    class="search-input"
+    autocomplete="off"
+  />
+  <span class="range-info">{total === 0 ? "No results" : `${startEntry}–${endEntry} of ${total}`}</span>
+</div>
 
 <div class="table-shell">
   <table>
@@ -92,7 +124,39 @@ const colCount = headerGroups[0]?.headers.length ?? 6;
   </table>
 </div>
 
+<div class="pagination">
+  <button class="page-btn" data-page={page - 1} disabled={prevBtnDisabled} aria-label="Previous page">&laquo;</button>
+  {pageNumbers.map(p =>
+    p === "…"
+      ? <span class="page-ellipsis">…</span>
+      : <button class={`page-btn${p === page ? " active" : ""}`} data-page={p}>{p}</button>
+  )}
+  <button class="page-btn" data-page={page + 1} disabled={nextBtnDisabled} aria-label="Next page">&raquo;</button>
+</div>
+
 <style>
+  .table-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: .75rem;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    padding: .45rem .65rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+    font-size: .9rem;
+    min-width: 200px;
+  }
+
+  .range-info {
+    font-size: .85rem;
+    color: #777;
+  }
+
   .table-shell {
     overflow-x: auto;
     border-radius: 8px;
@@ -124,4 +188,37 @@ const colCount = headerGroups[0]?.headers.length ?? 6;
   }
 
   .notes { color: #555; font-size: .9em; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .3rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .page-btn {
+    padding: .35rem .65rem;
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+    font-size: .85rem;
+    color: #444;
+  }
+
+  .page-btn:hover:not(:disabled):not(.active) { background: #f0f0f0; }
+  .page-btn:disabled { opacity: .4; cursor: default; }
+  .page-btn.active {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+
+  .page-ellipsis {
+    padding: .35rem .25rem;
+    color: #999;
+  }
 </style>

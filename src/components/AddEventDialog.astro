@@ -1,5 +1,13 @@
+---
+export interface Props {
+  isAdmin?: boolean;
+  userGroups?: string[];
+}
+const { isAdmin = false, userGroups = [] } = Astro.props;
+---
+
 <dialog id="add-dialog" class="event-dialog">
-  <form id="event-form" method="dialog">
+  <form id="event-form">
     <div class="dialog-head">
       <h2>Add Event</h2>
       <button id="close-dialog" class="icon-btn" type="button" aria-label="Close">×</button>
@@ -7,7 +15,7 @@
     <div class="form-grid">
       <div class="field">
         <label for="title">Title</label>
-        <input id="title" name="title" required />
+        <input id="title" name="title" required maxlength="200" />
       </div>
       <div class="field">
         <label for="start_date">Start Date</label>
@@ -18,8 +26,23 @@
         <input id="end_date" name="end_date" type="date" />
       </div>
       <div class="field">
+        <label for="group_name">Group</label>
+        {isAdmin || userGroups.length > 1 ? (
+          <input id="group_name" name="group_name" required maxlength="100" list="group-list" value={userGroups[0] ?? "default"} />
+        ) : (
+          <input id="group_name" name="group_name" required maxlength="100" readonly value={userGroups[0] ?? "default"} />
+        )}
+        {userGroups.length > 0 && (
+          <datalist id="group-list">
+            {userGroups.map((g) => (
+              <option value={g}>{g}</option>
+            ))}
+          </datalist>
+        )}
+      </div>
+      <div class="field">
         <label for="notes">Notes <em>(Optional)</em></label>
-        <textarea id="notes" name="notes" rows="2"></textarea>
+        <textarea id="notes" name="notes" rows="2" maxlength="5000"></textarea>
       </div>
     </div>
     <div class="dialog-actions">

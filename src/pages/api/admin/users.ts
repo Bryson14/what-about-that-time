@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { createUser, getSessionFromRequest, isAdminUser, listUsers } from "../../../lib/auth";
+import { createUserSchema } from "../../../lib/validation";
 import { logger } from "../../../lib/logging";
 
 export const GET: APIRoute = async (context) => {
@@ -32,11 +33,21 @@ export const POST: APIRoute = async (context) => {
     }
 
     const body = await context.request.json();
-    const username = body?.username?.toString() ?? "";
-    const password = body?.password?.toString() ?? "";
-    const fullName = body?.fullName?.toString() ?? "";
+    const parsed = createUserSchema.safeParse(body);
 
-    const result = await createUser(username, password, fullName);
+    if (!parsed.success) {
+      logger.warn("user creation validation failed", {
+        username: session.username,
+        issues: JSON.stringify(parsed.error.issues),
+      });
+      return new Response(JSON.stringify({ error: parsed.error.issues }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    const { username, password, fullName, allowedGroups } = parsed.data;
+    const result = await createUser(username, password, fullName, "user", allowedGroups);
     if (!result.ok) {
       logger.warn("user creation failed", { username: username.trim().toLowerCase(), error: result.error });
       return new Response(JSON.stringify({ error: result.error }), {
