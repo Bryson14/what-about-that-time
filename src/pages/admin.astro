@@ -2,8 +2,7 @@
 import { getSessionFromRequest, isAdminUser, listUsers } from "../lib/auth";
 import { logger } from "../lib/logging";
 import type { UserSummary } from "../lib/auth";
-
-const FAMILIES = ["Adams Family", "Meiling Family"]
+import { ALL_GROUPS } from "../lib/validation";
 
 const session = await getSessionFromRequest(Astro.request);
 if (!session) {
@@ -189,7 +188,7 @@ try {
               <label for="allowedGroups">Allowed group</label>
               <input id="allowedGroups" list="group-list" name="allowedGroups" />
               <datalist id="group-list">
-                {FAMILIES.map(family => <option value={family} />)}
+                {ALL_GROUPS.map(group => <option value={group} />)}
               </datalist>
             </div>
           </div>
@@ -247,6 +246,7 @@ try {
     </div>
 
     <script>
+      import { errorResponseSchema } from "../lib/validation";
       const form = document.getElementById("add-user-form") as HTMLFormElement;
       const formError = document.getElementById("form-error") as HTMLElement;
       const usersBody = document.getElementById("users-body") as HTMLElement;
@@ -277,8 +277,9 @@ try {
 
         if (!response.ok) {
           try {
-            const payload = await response.json();
-            formError.textContent = payload.error || "Unable to create user.";
+            const json = await response.json();
+            const parsed = errorResponseSchema.safeParse(json);
+            formError.textContent = parsed.success ? String(parsed.data.error) : "Unable to create user.";
           } catch {
             formError.textContent = "Unable to create user.";
           }
@@ -304,8 +305,9 @@ try {
           if (!response.ok) {
             let message = "Unable to remove user.";
             try {
-              const payload = await response.json();
-              message = payload.error || message;
+              const json = await response.json();
+              const parsed = errorResponseSchema.safeParse(json);
+              message = parsed.success ? String(parsed.data.error) : message;
             } catch {}
             formError.textContent = message;
             return;
@@ -363,8 +365,9 @@ try {
           if (!response.ok) {
             let message = "Unable to update groups.";
             try {
-              const payload = await response.json();
-              message = payload.error || message;
+              const json = await response.json();
+              const parsed = errorResponseSchema.safeParse(json);
+              message = parsed.success ? String(parsed.data.error) : message;
             } catch {}
             formError.textContent = message;
             return;

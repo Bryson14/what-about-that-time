@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import crypto from "node:crypto";
+import { DEFAULT_GROUPS } from "../src/lib/validation.ts";
 
 const ALGO = "sha256";
 const ITERATIONS = 100_000;
@@ -48,7 +49,7 @@ const passwordHash = toHex(crypto.pbkdf2Sync(password, saltBytes, ITERATIONS, KE
 const payload = JSON.stringify({
   fullName: fullName.trim(),
   role: "admin",
-  allowedGroups: ["Adams Family"],
+  allowedGroups: DEFAULT_GROUPS,
   passwordHash,
   salt,
 });

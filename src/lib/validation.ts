@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const DEFAULT_GROUPS = ["Adams Family"];
+export const ALL_GROUPS = [...DEFAULT_GROUPS, "Meiling Family"];
 
 export const createEventSchema = z.object({
   title: z.string().min(1, "title is required").max(200, "title must be at most 200 characters"),
@@ -40,3 +41,43 @@ export type UpdateEventInput = z.infer<typeof updateEventSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserGroupsInput = z.infer<typeof updateUserGroupsSchema>;
+
+export const errorResponseSchema = z.object({
+  error: z.union([z.string(), z.array(z.any())]),
+});
+
+export const paginatedEventsResponseSchema = z.object({
+  events: z.array(z.object({
+    id: z.number(),
+    title: z.string(),
+    start_date: z.string(),
+    end_date: z.string().nullable(),
+    notes: z.string().nullable(),
+    created_by: z.string(),
+    created_at: z.string(),
+    group_name: z.string(),
+  })),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+  totalPages: z.number(),
+});
+
+export const eventCreatedResponseSchema = z.object({
+  id: z.number(),
+});
+
+export const storedUserSchema = z.object({
+  fullName: z.string(),
+  role: z.enum(["admin", "user"]),
+  allowedGroups: z.array(z.string()),
+  passwordHash: z.string(),
+  salt: z.string(),
+});
+
+export const sessionUserSchema = z.object({
+  username: z.string(),
+  fullName: z.string(),
+  role: z.enum(["admin", "user"]),
+  allowedGroups: z.array(z.string()),
+});

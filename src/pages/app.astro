@@ -149,6 +149,7 @@ try {
     <Toast />
 
     <script>
+      import { errorResponseSchema, paginatedEventsResponseSchema } from "../lib/validation";
       const addDialog = document.getElementById("add-dialog") as HTMLDialogElement;
       const openAddButton = document.getElementById("open-add") as HTMLButtonElement;
       const closeDialogButton = document.getElementById("close-dialog") as HTMLButtonElement;
@@ -252,7 +253,10 @@ try {
         });
         const res = await fetch("/api/events?" + params.toString());
         if (!res.ok) return;
-        const data = await res.json() as { events: { id: number; title: string; start_date: string; end_date: string | null; notes: string | null; created_by: string; group_name: string }[]; total: number; page: number; pageSize: number };
+        const json = await res.json();
+        const parsed = paginatedEventsResponseSchema.safeParse(json);
+        if (!parsed.success) return;
+        const data = parsed.data;
 
         state.page = data.page;
 
@@ -285,8 +289,9 @@ try {
         });
 
         if (!res.ok) {
-          const err = await res.json() as { error?: string };
-          showToast(err.error || "Failed to create event", "error");
+          const json = await res.json();
+          const parsed = errorResponseSchema.safeParse(json);
+          showToast(parsed.success ? String(parsed.data.error) : "Failed to create event", "error");
           return;
         }
 

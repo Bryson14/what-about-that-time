@@ -47,7 +47,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     const { username, password, fullName, allowedGroups } = parsed.data;
-    const result = await createUser(username, password, fullName, "user", allowedGroups);
+    const result = await createUser(username, password, fullName, allowedGroups, "user");
     if (!result.ok) {
       logger.warn("user creation failed", { username: username.trim().toLowerCase(), error: result.error });
       return new Response(JSON.stringify({ error: result.error }), {

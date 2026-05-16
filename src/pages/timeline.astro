@@ -16,18 +16,28 @@ let events: Event[] = [];
 try {
   events = await getAllEvents(isAdmin ? undefined : session.allowedGroups);
 } catch (err) {
-  logger.error("failed to load events for timeline", { username: session.username, error: String(err) });
+  logger.error("failed to load events for timeline", {
+    username: session.username,
+    error: String(err),
+  });
 }
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no"
+    />
     <meta name="generator" content={Astro.generator} />
     <title>Timeline – What About That Time</title>
     <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
       body {
         font-family: system-ui, sans-serif;
@@ -42,54 +52,56 @@ try {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: .5rem 1rem;
+        padding: 0.5rem 1rem;
         background: linear-gradient(180deg, #0d1525 0%, #0a0e17 100%);
-        border-bottom: 1px solid rgba(255,255,255,0.06);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         z-index: 10;
         position: relative;
         flex-wrap: wrap;
-        gap: .5rem;
+        gap: 0.5rem;
       }
 
       .header h1 {
         font-size: 1rem;
         font-weight: 600;
         color: #ccc;
-        letter-spacing: .02em;
+        letter-spacing: 0.02em;
       }
 
       .header-actions {
         display: flex;
-        gap: .4rem;
+        gap: 0.4rem;
         align-items: center;
         flex-wrap: wrap;
       }
 
-      .nav-btn, .logout-btn {
-        padding: .3rem .7rem;
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.1);
+      .nav-btn,
+      .logout-btn {
+        padding: 0.3rem 0.7rem;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 6px;
         cursor: pointer;
         font: inherit;
-        font-size: .78rem;
+        font-size: 0.78rem;
         color: #999;
         text-decoration: none;
         display: inline-block;
-        transition: all .15s;
+        transition: all 0.15s;
       }
-      .nav-btn:hover, .logout-btn:hover {
-        background: rgba(255,255,255,0.08);
+      .nav-btn:hover,
+      .logout-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
         color: #ccc;
       }
 
       .user-chip {
-        border: 1px solid rgba(255,255,255,0.12);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 999px;
-        padding: .25rem .65rem;
-        font-size: .75rem;
+        padding: 0.25rem 0.65rem;
+        font-size: 0.75rem;
         color: #888;
-        background: rgba(255,255,255,0.03);
+        background: rgba(255, 255, 255, 0.03);
       }
 
       canvas {
@@ -102,41 +114,48 @@ try {
         cursor: grab;
         touch-action: none;
       }
-      canvas:active { cursor: grabbing; }
-      canvas.grabbing { cursor: grabbing; }
+      canvas:active {
+        cursor: grabbing;
+      }
+      canvas.grabbing {
+        cursor: grabbing;
+      }
 
       .hint {
         position: fixed;
         bottom: 1rem;
         left: 50%;
         translate: -50% 0;
-        font-size: .75rem;
-        color: rgba(255,255,255,0.2);
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.2);
         pointer-events: none;
         z-index: 5;
-        transition: opacity .5s;
+        transition: opacity 0.5s;
       }
 
       /* Modal */
       .modal-backdrop {
         display: none;
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,.6);
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
         backdrop-filter: blur(4px);
         z-index: 100;
         align-items: center;
         justify-content: center;
       }
-      .modal-backdrop.open { display: flex; }
+      .modal-backdrop.open {
+        display: flex;
+      }
 
       .modal {
         background: #111827;
-        border: 1px solid rgba(255,255,255,0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
         padding: 1.75rem;
         width: 100%;
         max-width: 460px;
-        box-shadow: 0 16px 48px rgba(0,0,0,.5);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
       }
 
       .modal h2 {
@@ -146,129 +165,182 @@ try {
         font-weight: 600;
       }
 
-      .field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: 1rem; }
-      .field label { font-size: .78rem; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .04em; }
-      .field input, .field textarea {
-        padding: .55rem .7rem;
-        border: 1px solid rgba(255,255,255,0.1);
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        margin-bottom: 1rem;
+      }
+      .field label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .field input,
+      .field textarea {
+        padding: 0.55rem 0.7rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 6px;
         font: inherit;
-        font-size: .9rem;
+        font-size: 0.9rem;
         background: #0d1525;
         color: #ddd;
         outline: none;
-        transition: border .15s;
+        transition: border 0.15s;
       }
-      .field input:focus, .field textarea:focus {
-        border-color: rgba(255,255,255,0.25);
+      .field input:focus,
+      .field textarea:focus {
+        border-color: rgba(255, 255, 255, 0.25);
       }
-      .field textarea { resize: vertical; }
+      .field textarea {
+        resize: vertical;
+      }
 
-      .modal-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1.25rem; }
+      .modal-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        margin-top: 1.25rem;
+      }
 
       .btn-save {
-        padding: .55rem 1.2rem;
-        background: rgba(255,255,255,0.1);
+        padding: 0.55rem 1.2rem;
+        background: rgba(255, 255, 255, 0.1);
         color: #ddd;
-        border: 1px solid rgba(255,255,255,0.15);
+        border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: 6px;
         cursor: pointer;
         font: inherit;
-        font-size: .85rem;
-        transition: all .15s;
+        font-size: 0.85rem;
+        transition: all 0.15s;
       }
-      .btn-save:hover { background: rgba(255,255,255,0.18); }
+      .btn-save:hover {
+        background: rgba(255, 255, 255, 0.18);
+      }
 
       .btn-cancel {
-        padding: .55rem 1.2rem;
+        padding: 0.55rem 1.2rem;
         background: none;
-        border: 1px solid rgba(255,255,255,0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 6px;
         cursor: pointer;
         font: inherit;
-        font-size: .85rem;
+        font-size: 0.85rem;
         color: #888;
-        transition: all .15s;
+        transition: all 0.15s;
       }
-      .btn-cancel:hover { color: #ccc; background: rgba(255,255,255,0.04); }
+      .btn-cancel:hover {
+        color: #ccc;
+        background: rgba(255, 255, 255, 0.04);
+      }
 
       .toast {
-        position: fixed; bottom: 1rem; right: 1rem;
-        padding: .75rem 1.25rem; border-radius: 8px; color: #fff;
-        opacity: 0; transition: opacity .3s; z-index: 200;
-        font-size: .85rem;
+        position: fixed;
+        bottom: 1rem;
+        right: 1rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        color: #fff;
+        opacity: 0;
+        transition: opacity 0.3s;
+        z-index: 200;
+        font-size: 0.85rem;
         pointer-events: none;
       }
-      .toast.show { opacity: 1; }
-      .toast.error { background: #c0392b; }
-      .toast.success { background: #27ae60; }
+      .toast.show {
+        opacity: 1;
+      }
+      .toast.error {
+        background: #c0392b;
+      }
+      .toast.success {
+        background: #27ae60;
+      }
 
       .event-popover {
         position: fixed;
         z-index: 90;
         background: #111827;
-        border: 1px solid rgba(255,255,255,0.12);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 10px;
-        padding: .85rem 1rem;
+        padding: 0.85rem 1rem;
         min-width: 200px;
         max-width: 300px;
-        box-shadow: 0 12px 40px rgba(0,0,0,.6);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
         display: none;
         pointer-events: auto;
-        animation: popFade .16s ease;
+        animation: popFade 0.16s ease;
         backdrop-filter: blur(8px);
       }
-      .event-popover.show { display: block; }
+      .event-popover.show {
+        display: block;
+      }
 
       .popover-title {
-        font-size: .9rem;
+        font-size: 0.9rem;
         font-weight: 600;
         color: #ddd;
-        margin-bottom: .3rem;
+        margin-bottom: 0.3rem;
         word-break: break-word;
       }
 
       .popover-dates {
-        font-size: .75rem;
+        font-size: 0.75rem;
         color: #888;
-        margin-bottom: .4rem;
+        margin-bottom: 0.4rem;
       }
 
       .popover-notes {
-        font-size: .78rem;
+        font-size: 0.78rem;
         color: #aaa;
-        margin-bottom: .55rem;
+        margin-bottom: 0.55rem;
         line-height: 1.4;
         white-space: pre-wrap;
         word-break: break-word;
       }
-      .popover-notes:empty { display: none; }
+      .popover-notes:empty {
+        display: none;
+      }
 
       .popover-edit-btn {
-        padding: .3rem .85rem;
-        background: rgba(255,255,255,0.07);
-        border: 1px solid rgba(255,255,255,0.14);
+        padding: 0.3rem 0.85rem;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.14);
         border-radius: 5px;
         color: #bbb;
         cursor: pointer;
         font: inherit;
-        font-size: .75rem;
-        transition: all .15s;
+        font-size: 0.75rem;
+        transition: all 0.15s;
       }
       .popover-edit-btn:hover {
-        background: rgba(255,255,255,0.15);
+        background: rgba(255, 255, 255, 0.15);
         color: #ddd;
       }
 
       @keyframes popFade {
-        from { opacity: 0; transform: translateY(4px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       @media (min-width: 768px) {
-        .header { padding: .6rem 1.5rem; }
-        .header h1 { font-size: 1.1rem; }
-        .hint { bottom: 1.5rem; }
+        .header {
+          padding: 0.6rem 1.5rem;
+        }
+        .header h1 {
+          font-size: 1.1rem;
+        }
+        .hint {
+          bottom: 1.5rem;
+        }
       }
     </style>
   </head>
@@ -277,7 +349,13 @@ try {
       <h1>Timeline</h1>
       <div class="header-actions">
         <span class="user-chip">{session.fullName} (@{session.username})</span>
-        {isAdmin && <a href="/admin" class="nav-btn">Admin</a>}
+        {
+          isAdmin && (
+            <a href="/admin" class="nav-btn">
+              Admin
+            </a>
+          )
+        }
         <a href="/app" class="nav-btn">Back to list</a>
         <form method="POST" action="/api/logout" style="display:contents">
           <button class="logout-btn" type="submit">Sign out</button>
@@ -286,7 +364,9 @@ try {
     </div>
 
     <canvas id="timeline-canvas"></canvas>
-    <div class="hint" id="hint">drag to explore &bull; tap events for details</div>
+    <div class="hint" id="hint">
+      drag to explore &bull; tap events for details
+    </div>
 
     <!-- Edit modal -->
     <div class="modal-backdrop" id="modal">
@@ -311,7 +391,9 @@ try {
             <textarea id="edit-notes" name="notes" rows="3"></textarea>
           </div>
           <div class="modal-actions">
-            <button type="button" class="btn-cancel" id="modal-cancel">Cancel</button>
+            <button type="button" class="btn-cancel" id="modal-cancel"
+              >Cancel</button
+            >
             <button type="submit" class="btn-save">Save</button>
           </div>
         </form>
@@ -327,25 +409,33 @@ try {
       <button class="popover-edit-btn" id="pop-edit">Edit</button>
     </div>
 
-    <script define:vars={{ eventsData: events }}>
+    <script is:inline define:vars={{ eventsData: events }}>
       window.__TIMELINE_EVENTS__ = eventsData;
     </script>
 
     <script>
       // ── DOM refs ──────────────────────────────────────────────
-      const canvas = document.getElementById("timeline-canvas") as HTMLCanvasElement;
+      const canvas = document.getElementById(
+        "timeline-canvas",
+      ) as HTMLCanvasElement;
       const ctx = canvas.getContext("2d")!;
       const modal = document.getElementById("modal")!;
       const editForm = document.getElementById("edit-form") as HTMLFormElement;
       const toastEl = document.getElementById("toast") as HTMLDivElement;
       const hintEl = document.getElementById("hint") as HTMLDivElement;
-      const popover = document.getElementById("event-popover") as HTMLDivElement;
+      const popover = document.getElementById(
+        "event-popover",
+      ) as HTMLDivElement;
       const popTitle = document.getElementById("pop-title") as HTMLDivElement;
       const popDates = document.getElementById("pop-dates") as HTMLDivElement;
       const popNotes = document.getElementById("pop-notes") as HTMLDivElement;
       const popEdit = document.getElementById("pop-edit") as HTMLButtonElement;
 
-      declare global { interface Window { __TIMELINE_EVENTS__?: any[] } }
+      declare global {
+        interface Window {
+          __TIMELINE_EVENTS__?: any[];
+        }
+      }
       const eventsData: any[] = window.__TIMELINE_EVENTS__ || [];
       delete window.__TIMELINE_EVENTS__;
 
@@ -371,9 +461,21 @@ try {
 
       // ── Constants ─────────────────────────────────────────────
       const PALETTE = [
-        "#ff6b6b", "#4ecdc4", "#feca57", "#a29bfe", "#fd79a8",
-        "#00b894", "#e17055", "#0984e3", "#6c5ce7", "#00cec9",
-        "#ffd166", "#2ec4b6", "#ef476f", "#118ab2", "#06d6a0",
+        "#ff6b6b",
+        "#4ecdc4",
+        "#feca57",
+        "#a29bfe",
+        "#fd79a8",
+        "#00b894",
+        "#e17055",
+        "#0984e3",
+        "#6c5ce7",
+        "#00cec9",
+        "#ffd166",
+        "#2ec4b6",
+        "#ef476f",
+        "#118ab2",
+        "#06d6a0",
       ];
 
       const MS_DAY = 86400000;
@@ -382,7 +484,9 @@ try {
 
       // ── State ─────────────────────────────────────────────────
       let parsedEvents: ParsedEvent[] = [];
-      let minTs = 0, maxTs = 0, totalRange = 0;
+      let minTs = 0,
+        maxTs = 0,
+        totalRange = 0;
       let focusTs = 0;
       let detailHalfRange = 0;
       let isDragging = false;
@@ -392,7 +496,8 @@ try {
       let animFrame: number | null = null;
       let hoveredEventId: number | null = null;
       let hitRegions: HitRegion[] = [];
-      let canvasW = 0, canvasH = 0;
+      let canvasW = 0,
+        canvasH = 0;
       let dpr = 1;
 
       // ── Toast ─────────────────────────────────────────────────
@@ -437,11 +542,17 @@ try {
 
       // ── Modal ─────────────────────────────────────────────────
       function openModal(ev: ParsedEvent) {
-        (document.getElementById("edit-id") as HTMLInputElement).value = String(ev.id);
-        (document.getElementById("edit-title") as HTMLInputElement).value = ev.title;
-        (document.getElementById("edit-start") as HTMLInputElement).value = ev.start_date;
-        (document.getElementById("edit-end") as HTMLInputElement).value = ev.end_date ?? "";
-        (document.getElementById("edit-notes") as HTMLTextAreaElement).value = ev.notes ?? "";
+        (document.getElementById("edit-id") as HTMLInputElement).value = String(
+          ev.id,
+        );
+        (document.getElementById("edit-title") as HTMLInputElement).value =
+          ev.title;
+        (document.getElementById("edit-start") as HTMLInputElement).value =
+          ev.start_date;
+        (document.getElementById("edit-end") as HTMLInputElement).value =
+          ev.end_date ?? "";
+        (document.getElementById("edit-notes") as HTMLTextAreaElement).value =
+          ev.notes ?? "";
         modal.classList.add("open");
       }
 
@@ -449,19 +560,29 @@ try {
         modal.classList.remove("open");
       }
 
-      document.getElementById("modal-cancel")!.addEventListener("click", closeModal);
+      document
+        .getElementById("modal-cancel")!
+        .addEventListener("click", closeModal);
       modal.addEventListener("click", (e) => {
         if (e.target === modal) closeModal();
       });
 
       editForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const id = (document.getElementById("edit-id") as HTMLInputElement).value;
+        const id = (document.getElementById("edit-id") as HTMLInputElement)
+          .value;
         const body = {
-          title: (document.getElementById("edit-title") as HTMLInputElement).value,
-          start_date: (document.getElementById("edit-start") as HTMLInputElement).value,
-          end_date: (document.getElementById("edit-end") as HTMLInputElement).value || null,
-          notes: (document.getElementById("edit-notes") as HTMLTextAreaElement).value || null,
+          title: (document.getElementById("edit-title") as HTMLInputElement)
+            .value,
+          start_date: (
+            document.getElementById("edit-start") as HTMLInputElement
+          ).value,
+          end_date:
+            (document.getElementById("edit-end") as HTMLInputElement).value ||
+            null,
+          notes:
+            (document.getElementById("edit-notes") as HTMLTextAreaElement)
+              .value || null,
         };
 
         const res = await fetch(`/api/events/${id}`, {
@@ -470,7 +591,10 @@ try {
           body: JSON.stringify(body),
         });
 
-        if (!res.ok) { showToast("Failed to save event", "error"); return; }
+        if (!res.ok) {
+          showToast("Failed to save event", "error");
+          return;
+        }
 
         showToast("Event saved");
         closeModal();
@@ -485,7 +609,9 @@ try {
             end_date: body.end_date,
             notes: body.notes,
             startTs: new Date(body.start_date!).getTime(),
-            endTs: body.end_date ? new Date(body.end_date).getTime() : old.startTs + MS_DAY,
+            endTs: body.end_date
+              ? new Date(body.end_date).getTime()
+              : old.startTs + MS_DAY,
           };
         }
       });
@@ -493,7 +619,11 @@ try {
       // ── Helpers ───────────────────────────────────────────────
       function fmtDate(ts: number): string {
         const d = new Date(ts);
-        return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+        return d.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
       }
 
       function fmtYear(ts: number): string {
@@ -540,7 +670,9 @@ try {
       // ── Layout / sizing ───────────────────────────────────────
       function resize() {
         dpr = window.devicePixelRatio || 1;
-        const headerH = document.querySelector(".header")!.getBoundingClientRect().height;
+        const headerH = document
+          .querySelector(".header")!
+          .getBoundingClientRect().height;
         canvasW = window.innerWidth;
         canvasH = window.innerHeight - headerH;
         canvas.style.width = canvasW + "px";
@@ -560,7 +692,9 @@ try {
         parsedEvents = eventsData.map((ev: any) => ({
           ...ev,
           startTs: new Date(ev.start_date).getTime(),
-          endTs: ev.end_date ? new Date(ev.end_date).getTime() : new Date(ev.start_date).getTime() + MS_DAY,
+          endTs: ev.end_date
+            ? new Date(ev.end_date).getTime()
+            : new Date(ev.start_date).getTime() + MS_DAY,
           color: eventColor(ev.id),
         }));
 
@@ -584,7 +718,10 @@ try {
         maxTs += pad;
         totalRange = maxTs - minTs;
 
-        detailHalfRange = Math.max(totalRange * (isMobile() ? 0.5 : 0.15), MS_YEAR * (isMobile() ? 2 : 0.5));
+        detailHalfRange = Math.max(
+          totalRange * (isMobile() ? 0.5 : 0.15),
+          MS_YEAR * (isMobile() ? 2 : 0.5),
+        );
         focusTs = minTs + totalRange * 0.5;
       }
 
@@ -628,8 +765,11 @@ try {
           }
 
           const fy = topPad + ((focusTs - minTs) / totalRange) * oh;
-          const detailH = oh * Math.min(detailHalfRange * 2 / totalRange, 1);
-          const fTop = Math.max(topPad, Math.min(topPad + oh - detailH, fy - detailH / 2));
+          const detailH = oh * Math.min((detailHalfRange * 2) / totalRange, 1);
+          const fTop = Math.max(
+            topPad,
+            Math.min(topPad + oh - detailH, fy - detailH / 2),
+          );
 
           ctx.fillStyle = "rgba(255,255,255,0.12)";
           ctx.strokeStyle = "rgba(255,255,255,0.2)";
@@ -709,7 +849,11 @@ try {
           ctx.font = `${Math.max(10, oh * 0.13)}px system-ui, sans-serif`;
           ctx.textAlign = "center";
           const yearStep = calcStep(totalRange);
-          for (let t = Math.ceil(minTs / MS_YEAR) * MS_YEAR; t <= maxTs; t += yearStep) {
+          for (
+            let t = Math.ceil(minTs / MS_YEAR) * MS_YEAR;
+            t <= maxTs;
+            t += yearStep
+          ) {
             const mx = lineX0 + ((t - minTs) / totalRange) * lineW;
             ctx.fillText(fmtYear(t), mx, oy + oh - 6);
           }
@@ -737,13 +881,27 @@ try {
           ctx.lineTo(cx, canvasH - padBot);
           ctx.stroke();
 
-          const clampedEvents: { ev: ParsedEvent; sy: number; ey: number; laneIdx: number }[] = [];
+          const clampedEvents: {
+            ev: ParsedEvent;
+            sy: number;
+            ey: number;
+            laneIdx: number;
+          }[] = [];
           for (let li = 0; li < evLanes.length; li++) {
             for (const ev of evLanes[li].events) {
-              const sy = padTop + ((ev.startTs - visibleStart) / (detailHalfRange * 2)) * detailH;
-              const ey = padTop + ((ev.endTs - visibleStart) / (detailHalfRange * 2)) * detailH;
+              const sy =
+                padTop +
+                ((ev.startTs - visibleStart) / (detailHalfRange * 2)) * detailH;
+              const ey =
+                padTop +
+                ((ev.endTs - visibleStart) / (detailHalfRange * 2)) * detailH;
               if (ey < padTop || sy > canvasH - padBot) continue;
-              clampedEvents.push({ ev, sy: Math.max(padTop, sy), ey: Math.min(canvasH - padBot, ey), laneIdx: li });
+              clampedEvents.push({
+                ev,
+                sy: Math.max(padTop, sy),
+                ey: Math.min(canvasH - padBot, ey),
+                laneIdx: li,
+              });
             }
           }
 
@@ -779,7 +937,11 @@ try {
             if (barH > 16) {
               ctx.fillText(ce.ev.title, barX + 4, ce.sy + barH * 0.5 + 4);
             } else {
-              ctx.fillText(ce.ev.title, barX + barW + 6, ce.sy + barH * 0.5 + 4);
+              ctx.fillText(
+                ce.ev.title,
+                barX + barW + 6,
+                ce.sy + barH * 0.5 + 4,
+              );
             }
 
             hitRegions.push({
@@ -807,10 +969,13 @@ try {
           ctx.textAlign = "left";
           ctx.fillText(fmtDate(visibleStart), padX, padTop - 4);
           ctx.textAlign = "right";
-          ctx.fillText(fmtDate(visibleEnd), canvasW - 100, canvasH - padBot + 14);
+          ctx.fillText(
+            fmtDate(visibleEnd),
+            canvasW - 100,
+            canvasH - padBot + 14,
+          );
           ctx.textAlign = "center";
           ctx.fillText(fmtDate(midTs), padX + detailsW * 0.09, indicatorY - 6);
-
         } else {
           const pad = 40;
           const oy = 8;
@@ -827,7 +992,8 @@ try {
           const firstYear = Math.ceil(visibleStart / MS_YEAR) * MS_YEAR;
           const yearStep = calcStep(detailHalfRange * 2);
           for (let t = firstYear; t <= visibleEnd; t += yearStep) {
-            const gx = lineX0 + ((t - visibleStart) / (detailHalfRange * 2)) * lineW;
+            const gx =
+              lineX0 + ((t - visibleStart) / (detailHalfRange * 2)) * lineW;
             ctx.beginPath();
             ctx.moveTo(gx, oy);
             ctx.lineTo(gx, oy + detailH);
@@ -845,7 +1011,8 @@ try {
           ctx.font = `${Math.max(10, detailH * 0.035)}px system-ui, sans-serif`;
           ctx.textAlign = "center";
           for (let t = firstYear; t <= visibleEnd; t += yearStep) {
-            const gx = lineX0 + ((t - visibleStart) / (detailHalfRange * 2)) * lineW;
+            const gx =
+              lineX0 + ((t - visibleStart) / (detailHalfRange * 2)) * lineW;
             ctx.fillText(fmtYear(t), gx, timelineY - 10);
           }
 
@@ -859,8 +1026,12 @@ try {
             const ly = barsBaseline + li * laneHeight;
 
             for (const ev of lane.events) {
-              const ex = lineX0 + ((ev.startTs - visibleStart) / (detailHalfRange * 2)) * lineW;
-              const exEnd = lineX0 + ((ev.endTs - visibleStart) / (detailHalfRange * 2)) * lineW;
+              const ex =
+                lineX0 +
+                ((ev.startTs - visibleStart) / (detailHalfRange * 2)) * lineW;
+              const exEnd =
+                lineX0 +
+                ((ev.endTs - visibleStart) / (detailHalfRange * 2)) * lineW;
 
               const clampedX0 = Math.max(lineX0, ex);
               const clampedX1 = Math.min(lineX1, exEnd);
@@ -869,7 +1040,12 @@ try {
               const bw = clampedX1 - clampedX0;
               const bh = Math.min(laneHeight - 4, 24);
 
-              const grad = ctx.createLinearGradient(clampedX0, ly, clampedX0, ly + bh);
+              const grad = ctx.createLinearGradient(
+                clampedX0,
+                ly,
+                clampedX0,
+                ly + bh,
+              );
               grad.addColorStop(0, ev.color + "dd");
               grad.addColorStop(1, ev.color + "44");
               ctx.fillStyle = grad;
@@ -948,7 +1124,7 @@ try {
           ctx.fillText(
             "No events yet — add some from the list view",
             canvasW / 2,
-            canvasH / 2
+            canvasH / 2,
           );
           return;
         }
@@ -1004,21 +1180,30 @@ try {
             const padBot = 20;
             const detailH = canvasH - padTop - padBot;
             const deltaPx = dragStart.y - pos.y;
-            focusTs = dragStartFocus + (deltaPx / detailH) * detailHalfRange * 4;
+            focusTs =
+              dragStartFocus + (deltaPx / detailH) * detailHalfRange * 4;
           } else {
             const pad = 40;
             const lineW = canvasW - pad * 2 - 60;
             const deltaPx = pos.x - dragStart.x;
             focusTs = dragStartFocus - (deltaPx / lineW) * detailHalfRange * 2;
           }
-          focusTs = Math.max(minTs - detailHalfRange * 0.5, Math.min(maxTs + detailHalfRange * 0.5, focusTs));
+          focusTs = Math.max(
+            minTs - detailHalfRange * 0.5,
+            Math.min(maxTs + detailHalfRange * 0.5, focusTs),
+          );
           velocity = 0;
           return;
         }
 
         let found = false;
         for (const hr of hitRegions) {
-          if (pos.x >= hr.x && pos.x <= hr.x + hr.w && pos.y >= hr.y && pos.y <= hr.y + hr.h) {
+          if (
+            pos.x >= hr.x &&
+            pos.x <= hr.x + hr.w &&
+            pos.y >= hr.y &&
+            pos.y <= hr.y + hr.h
+          ) {
             if (hoveredEventId !== hr.eventId) {
               hoveredEventId = hr.eventId;
               canvas.style.cursor = "pointer";
@@ -1050,8 +1235,12 @@ try {
             }
             const mobile = isMobile();
             const lineLen = mobile ? canvasH : canvasW;
-            focusTs += velocity * (detailHalfRange * (mobile ? 4 : 2) / lineLen);
-            focusTs = Math.max(minTs - detailHalfRange * 0.5, Math.min(maxTs + detailHalfRange * 0.5, focusTs));
+            focusTs +=
+              velocity * ((detailHalfRange * (mobile ? 4 : 2)) / lineLen);
+            focusTs = Math.max(
+              minTs - detailHalfRange * 0.5,
+              Math.min(maxTs + detailHalfRange * 0.5, focusTs),
+            );
             velocity *= decay;
             requestAnimationFrame(animate);
           };
@@ -1065,7 +1254,12 @@ try {
         if (isDragging) return;
         const pos = getCanvasPos(e);
         for (const hr of hitRegions) {
-          if (pos.x >= hr.x && pos.x <= hr.x + hr.w && pos.y >= hr.y && pos.y <= hr.y + hr.h) {
+          if (
+            pos.x >= hr.x &&
+            pos.x <= hr.x + hr.w &&
+            pos.y >= hr.y &&
+            pos.y <= hr.y + hr.h
+          ) {
             const ev = parsedEvents.find((p) => p.id === hr.eventId);
             if (ev) showPopover(ev, e.clientX, e.clientY);
             return;
@@ -1075,48 +1269,73 @@ try {
       });
 
       // ── Wheel ──────────────────────────────────────────────────
-      canvas.addEventListener("wheel", (e) => {
-        e.preventDefault();
-        hintEl.style.opacity = "0";
+      canvas.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+          hintEl.style.opacity = "0";
 
-        const mobile = isMobile();
-        if (mobile) {
-          focusTs += e.deltaY * (detailHalfRange / canvasH) * 8;
-        } else {
-          focusTs += e.deltaX * (detailHalfRange / canvasW) * 5;
-          focusTs += e.deltaY * (detailHalfRange / canvasW) * 5;
-        }
-        focusTs = Math.max(minTs - detailHalfRange * 0.5, Math.min(maxTs + detailHalfRange * 0.5, focusTs));
-        startAnim();
-      }, { passive: false });
+          const mobile = isMobile();
+          if (mobile) {
+            focusTs += e.deltaY * (detailHalfRange / canvasH) * 8;
+          } else {
+            focusTs += e.deltaX * (detailHalfRange / canvasW) * 5;
+            focusTs += e.deltaY * (detailHalfRange / canvasW) * 5;
+          }
+          focusTs = Math.max(
+            minTs - detailHalfRange * 0.5,
+            Math.min(maxTs + detailHalfRange * 0.5, focusTs),
+          );
+          startAnim();
+        },
+        { passive: false },
+      );
 
       // ── Touch events for velocity ─────────────────────────────
-      document.addEventListener("touchmove", (e) => {
-        if (!isDragging || e.touches.length === 0) return;
-        e.preventDefault();
-        const touch = e.touches[0];
-        const pos = getCanvasPos({ clientX: touch.clientX, clientY: touch.clientY });
-        const mobile = isMobile();
-        if (mobile) {
-          velocity = -(pos.y - dragStart.y);
-        } else {
-          velocity = pos.x - dragStart.x;
-        }
-        dragStart = pos;
-        dragStartFocus = focusTs;
-      }, { passive: false });
+      document.addEventListener(
+        "touchmove",
+        (e) => {
+          if (!isDragging || e.touches.length === 0) return;
+          e.preventDefault();
+          const touch = e.touches[0];
+          const pos = getCanvasPos({
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+          });
+          const mobile = isMobile();
+          if (mobile) {
+            velocity = -(pos.y - dragStart.y);
+          } else {
+            velocity = pos.x - dragStart.x;
+          }
+          dragStart = pos;
+          dragStartFocus = focusTs;
+        },
+        { passive: false },
+      );
 
       // ── Keyboard ───────────────────────────────────────────────
       window.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") { closeModal(); hidePopover(); }
-        if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") {
+        if (e.key === "Escape") {
+          closeModal();
+          hidePopover();
+        }
+        if (
+          e.key === "ArrowLeft" ||
+          e.key === "ArrowRight" ||
+          e.key === "ArrowUp" ||
+          e.key === "ArrowDown"
+        ) {
           hintEl.style.opacity = "0";
           const step = detailHalfRange * 0.15;
           if (e.key === "ArrowLeft") focusTs -= step;
           if (e.key === "ArrowRight") focusTs += step;
           if (e.key === "ArrowUp") focusTs -= step;
           if (e.key === "ArrowDown") focusTs += step;
-          focusTs = Math.max(minTs - detailHalfRange * 0.5, Math.min(maxTs + detailHalfRange * 0.5, focusTs));
+          focusTs = Math.max(
+            minTs - detailHalfRange * 0.5,
+            Math.min(maxTs + detailHalfRange * 0.5, focusTs),
+          );
           startAnim();
         }
       });

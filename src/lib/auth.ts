@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { storedUserSchema, sessionUserSchema } from "./validation";
 
 export const AUTH_COOKIE = "auth_session";
 
@@ -92,7 +93,10 @@ async function hashPassword(password: string, saltHex: string): Promise<string> 
 }
 
 async function getStoredUser(username: string): Promise<StoredUser | null> {
-  return usersKv().get<StoredUser>(userKey(username), "json");
+  const raw = await usersKv().get(userKey(username), "json");
+  if (!raw) return null;
+  const parsed = storedUserSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
 }
 
 export async function authenticateUser(username: string, password: string): Promise<SessionUser | null> {
@@ -125,8 +129,14 @@ export async function getSessionFromRequest(request: Request): Promise<SessionUs
   const token = getCookieValue(request, AUTH_COOKIE);
   if (!token) return null;
 
-  const session = await usersKv().get<SessionUser>(sessionKey(token), "json");
-  if (!session) return null;
+  const raw = await usersKv().get(sessionKey(token), "json");
+  if (!raw) return null;
+  const sessionParsed = sessionUserSchema.safeParse(raw);
+  if (!sessionParsed.success) {
+    await destroySession(token);
+    return null;
+  }
+  const session = sessionParsed.data;
 
   const user = await getStoredUser(session.username);
   if (!user) {
@@ -158,23 +168,24 @@ export interface UserSummary {
   username: string;
   fullName: string;
   role: "admin" | "user";
-  allowedGroups: string[] | undefined;
+  allowedGroups: string[];
 }
 
 export async function listUsers(): Promise<UserSummary[]> {
   const keys = await usersKv().list({ prefix: USER_PREFIX });
   const users = await Promise.all(
-    keys.keys.map(async ({ name }) => {
-      const record = await usersKv().get<StoredUser>(name, "json");
-      if (!record) return null;
-      const groups = Array.isArray(record.allowedGroups) ? record.allowedGroups : ["default"];
-      return { username: name.slice(USER_PREFIX.length), fullName: record.fullName, role: record.role, allowedGroups: groups };
+    keys.keys.map(async (key: { name: string }) => {
+      const raw = await usersKv().get(key.name, "json");
+      if (!raw) return null;
+      const parsed = storedUserSchema.safeParse(raw);
+      if (!parsed.success) return null;
+      return { username: key.name.slice(USER_PREFIX.length), fullName: parsed.data.fullName, role: parsed.data.role, allowedGroups: parsed.data.allowedGroups };
     })
   );
 
   return users
     .filter((u): u is UserSummary => u !== null)
-    .sort((a, b) => a.username.localeCompare(b.username));
+    .sort((a: UserSummary, b: UserSummary) => a.username.localeCompare(b.username));
 }
 
 export async function createUser(
@@ -247,10 +258,12 @@ export async function deleteUser(username: string): Promise<{ ok: true } | { ok:
 
   const sessions = await usersKv().list({ prefix: SESSION_PREFIX });
   await Promise.all(
-    sessions.keys.map(async ({ name }) => {
-      const session = await usersKv().get<SessionUser>(name, "json");
-      if (session?.username === normalized) {
-        await usersKv().delete(name);
+    sessions.keys.map(async (key: { name: string }) => {
+      const raw = await usersKv().get(key.name, "json");
+      if (!raw) return;
+      const parsed = sessionUserSchema.safeParse(raw);
+      if (parsed.success && parsed.data.username === normalized) {
+        await usersKv().delete(key.name);
       }
     })
   );

@@ -8,3 +8,4 @@ Used for my own personal use, built on Astro and Cloudflare.
 - Avoid bringing in dependancies
 - Run `pnpm astro check` to check typescript errors.
 - Run `pnpm build` to check that it can build (does not check ts errors)
+- Use Zod liberally where inputs are unknown for better type safety.
