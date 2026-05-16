@@ -59,6 +59,10 @@ const { eventId, canEdit = false, canDelete = false } = Astro.props;
     gap: .25rem;
   }
 
+  .menu-panel[hidden] {
+    display: none;
+  }
+
   .menu-panel .edit {
     width: 100%;
     text-align: left;
