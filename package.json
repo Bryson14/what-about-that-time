@@ -17,9 +17,12 @@
   "dependencies": {
     "@astrojs/check": "^0.9.9",
     "@astrojs/cloudflare": "^13.5.0",
+    "@astrojs/compiler-rs": "^0.2.0",
     "@astrojs/sitemap": "^3.7.2",
-    "@tanstack/table-core": "^8.21.3",
+    "@astrojs/svelte": "^8.1.1",
+    "@tanstack/svelte-table": "9.0.0-alpha.46",
     "astro": "^6.3.1",
+    "svelte": "^5.55.7",
     "typescript": "^6.0.3",
     "wrangler": "^4.90.1",
     "zod": "^4.4.3"

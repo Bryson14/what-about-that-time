@@ -1,9 +1,11 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig } from "astro/config";
 
-import cloudflare from '@astrojs/cloudflare';
+import cloudflare from "@astrojs/cloudflare";
 
-import sitemap from '@astrojs/sitemap';
+import sitemap from "@astrojs/sitemap";
+
+import svelte from "@astrojs/svelte";
 
 // https://astro.build/config
 export default defineConfig({
@@ -11,13 +13,29 @@ export default defineConfig({
   site: "https://timeline.smiling.dev",
 
   adapter: cloudflare({
-    sessionKVBindingName: 'SESSION',
+    sessionKVBindingName: "SESSION",
   }),
 
-  integrations: [sitemap({
-    filter: (page) => {
-      // Exclude admin and login pages from sitemap
-      return !page.includes("/admin")
-    }
-  })]
+  integrations: [
+    sitemap({
+      filter: (page) => {
+        return !page.includes("/admin");
+      },
+    }),
+    svelte(),
+  ],
+
+  vite: {
+    build: {
+      assetsInlineLimit: 4096,
+      rollupOptions: {
+        output: {
+          experimentalMinChunkSize: 3000,
+        },
+      },
+    },
+    ssr: {
+      noExternal: ["svelte"],
+    },
+  },
 });
