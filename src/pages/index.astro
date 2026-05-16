@@ -7,6 +7,12 @@ export const prerender = true;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="generator" content={Astro.generator} />
+    <meta name="description" content="A personal timeline for tracking events, memories, and moments that matter. A private journal of moments, activities, and milestones." />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site).href} />
+    <meta name="theme-color" content="#1a1a1a" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
     <title>What About That Time</title>
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

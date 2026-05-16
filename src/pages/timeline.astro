@@ -32,6 +32,8 @@ try {
       content="width=device-width, initial-scale=1, user-scalable=no"
     />
     <meta name="generator" content={Astro.generator} />
+    <meta name="description" content="Explore your personal timeline — an interactive visual timeline of events." />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site).href} />
     <title>Timeline – What About That Time</title>
     <style>
       * {
@@ -967,7 +969,7 @@ try {
               if (clampedX1 <= clampedX0) continue;
 
               const bw = clampedX1 - clampedX0;
-              const bh = Math.min(laneHeight - 4, 24);
+              const bh = Math.max(Math.min(laneHeight - 14, 20), 4);
 
               const grad = ctx.createLinearGradient(
                 clampedX0,
@@ -1009,7 +1011,7 @@ try {
                 ctx.fillStyle = "rgba(255,255,255,0.7)";
                 ctx.font = "10px system-ui, sans-serif";
                 ctx.textAlign = "left";
-                ctx.fillText(ev.title, clampedX0, ly - 4);
+                ctx.fillText(ev.title, clampedX0, ly + bh + 12);
               }
 
               hitRegions.push({
