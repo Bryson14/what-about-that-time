@@ -9,8 +9,10 @@ export interface Props {
   page: number;
   pageSize: number;
   search: string;
+  isAdmin?: boolean;
+  currentUsername?: string;
 }
-const { events, total, page, pageSize, search } = Astro.props;
+const { events, total, page, pageSize, search, isAdmin = false, currentUsername = "" } = Astro.props;
 
 const columnHelper = createColumnHelper<Event>();
 
@@ -101,25 +103,28 @@ const prevBtnDisabled = page <= 1;
       {rows.length === 0 && (
         <tr><td colspan={colCount} class="empty">No events yet</td></tr>
       )}
-      {rows.map(row => (
-        <tr data-id={row.original.id}>
-          {row.getVisibleCells().map(cell => {
-            if (cell.column.id === "actions") {
-              return <ActionsMenu eventId={row.original.id} />;
-            }
-            if (cell.column.id === "title") {
-              return <td><strong>{cell.getValue() as string}</strong></td>;
-            }
-            if (cell.column.id === "notes") {
-              return <td class="notes">{(cell.getValue() as string) ?? ""}</td>;
-            }
-            if (cell.column.id === "end_date") {
-              return <td>{(cell.getValue() as string) ?? "—"}</td>;
-            }
-            return <td>{cell.getValue() as string}</td>;
-          })}
-        </tr>
-      ))}
+      {rows.map(row => {
+        const canModify = isAdmin || row.original.created_by === currentUsername;
+        return (
+          <tr data-id={row.original.id}>
+            {row.getVisibleCells().map(cell => {
+              if (cell.column.id === "actions") {
+                return <ActionsMenu eventId={row.original.id} canEdit={canModify} canDelete={canModify} />;
+              }
+              if (cell.column.id === "title") {
+                return <td><strong>{cell.getValue() as string}</strong></td>;
+              }
+              if (cell.column.id === "notes") {
+                return <td class="notes">{(cell.getValue() as string) ?? ""}</td>;
+              }
+              if (cell.column.id === "end_date") {
+                return <td>{(cell.getValue() as string) ?? "—"}</td>;
+              }
+              return <td>{cell.getValue() as string}</td>;
+            })}
+          </tr>
+        );
+      })}
     </tbody>
   </table>
 </div>

@@ -12,6 +12,7 @@ import type { Event } from "../lib/db";
 import EventsTable from "../components/EventsTable.astro";
 import AddEventDialog from "../components/AddEventDialog.astro";
 import Toast from "../components/Toast.astro";
+import Header from "../components/Header.astro";
 
 const isAdmin = isAdminUser(session);
 
@@ -52,47 +53,16 @@ try {
         color: #1a1a1a;
       }
 
-      h1 { margin-bottom: .5rem; }
-
       .content {
         max-width: 960px;
         margin: 0 auto;
         padding: 0 0 4rem;
       }
 
-
-      .header {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: .75rem;
-        margin-bottom: 1rem;
-      }
-      .logout-btn {
-        padding: .35rem .85rem; background: none; border: 1px solid #ccc;
-        border-radius: 4px; cursor: pointer; font: inherit; font-size: .85rem; color: #555;
-      }
-      .logout-btn:hover { background: #f0f0f0; }
-
-      .nav-btn {
-        padding: .35rem .85rem; background: none; border: 1px solid #ccc;
-        border-radius: 4px; font: inherit; font-size: .85rem; color: #555;
-        text-decoration: none; display: inline-block;
-      }
-      .nav-btn:hover { background: #f0f0f0; }
-      .user-chip {
-        border: 1px solid #ddd;
-        border-radius: 999px;
-        padding: .3rem .75rem;
-        font-size: .8rem;
-        color: #555;
-        background: #fff;
-      }
-
       .add-fab {
         position: fixed;
-        top: max(.85rem, env(safe-area-inset-top));
-        right: max(.85rem, env(safe-area-inset-right));
+        bottom: max(1rem, env(safe-area-inset-bottom));
+        right: max(1rem, env(safe-area-inset-right));
         width: 3rem;
         height: 3rem;
         border: none;
@@ -109,15 +79,10 @@ try {
       @media (min-width: 768px) {
         body { padding: 2rem; }
         .content { padding: 0 1rem 4rem; }
-        .header {
-          flex-direction: row;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.5rem;
-        }
         .add-fab {
           top: 1.25rem;
           right: 1.25rem;
+          bottom: auto;
         }
       }
 
@@ -126,23 +91,17 @@ try {
       }
     </style>
   </head>
-  <body>
+  <body data-is-admin={String(isAdmin)} data-current-username={session.username}>
     <button id="open-add" class="add-fab" type="button" aria-label="Add event">+</button>
 
     <div class="content">
-      <div class="header">
-        <h1>What About That Time</h1>
-        <div style="display:flex;gap:.5rem;align-items:center">
-          <span class="user-chip">{session.fullName} (@{session.username})</span>
-          {isAdmin && <a href="/admin" class="nav-btn">Admin</a>}
-          <a href="/timeline" class="nav-btn">Timeline view</a>
-          <form method="POST" action="/api/logout" style="display:contents">
-            <button class="logout-btn" type="submit">Sign out</button>
-          </form>
-        </div>
-      </div>
+      <Header
+        session={{ fullName: session.fullName, username: session.username }}
+        isAdmin={isAdmin}
+        navLinks={[{ href: "/timeline", label: "Timeline view" }]}
+      />
 
-      <EventsTable events={events} total={total} page={currentPage} pageSize={pageSize} search={search} />
+      <EventsTable events={events} total={total} page={currentPage} pageSize={pageSize} search={search} isAdmin={isAdmin} currentUsername={session.username} />
     </div>
 
     <AddEventDialog isAdmin={isAdmin} userGroups={session.allowedGroups} />
@@ -150,6 +109,15 @@ try {
 
     <script>
       import { errorResponseSchema, paginatedEventsResponseSchema } from "../lib/validation";
+
+      const appState = {
+        isAdmin: document.body.dataset.isAdmin === "true",
+        currentUsername: document.body.dataset.currentUsername || "",
+        page: +"{currentPage}",
+        pageSize: +"{pageSize}",
+        search: "{search}",
+      };
+
       const addDialog = document.getElementById("add-dialog") as HTMLDialogElement;
       const openAddButton = document.getElementById("open-add") as HTMLButtonElement;
       const closeDialogButton = document.getElementById("close-dialog") as HTMLButtonElement;
@@ -159,7 +127,6 @@ try {
       const searchInput = document.getElementById("table-search") as HTMLInputElement;
       const paginationContainer = document.querySelector(".pagination") as HTMLElement;
 
-      const state = { page: +"{currentPage}", pageSize: +"{pageSize}", search: "{search}" };
       let searchTimer: ReturnType<typeof setTimeout>;
 
       function escapeHtml(str: string) {
@@ -175,11 +142,56 @@ try {
         setTimeout(() => toast.classList.remove("show"), 3000);
       }
 
+      function canModify(createdBy: string) {
+        return appState.isAdmin || createdBy === appState.currentUsername;
+      }
+
       function openAddDialog() {
         if (typeof addDialog.showModal !== "function") {
           showToast("Your browser does not support the dialog feature. Please use a modern browser.", "error");
           return;
         }
+        form.reset();
+        const eventIdInput = form.querySelector('input[name="event_id"]') as HTMLInputElement | null;
+        if (eventIdInput) eventIdInput.remove();
+        const heading = addDialog.querySelector("h2");
+        if (heading) heading.textContent = "Add Event";
+        const saveBtn = form.querySelector(".save-btn") as HTMLButtonElement | null;
+        if (saveBtn) saveBtn.textContent = "Add";
+        addDialog.showModal();
+      }
+
+      function openEditDialog(ev: { id: number; title: string; start_date: string; end_date: string | null; group_name: string; notes: string | null }) {
+        if (typeof addDialog.showModal !== "function") {
+          showToast("Your browser does not support the dialog feature. Please use a modern browser.", "error");
+          return;
+        }
+
+        const heading = addDialog.querySelector("h2");
+        if (heading) heading.textContent = "Edit Event";
+        const saveBtn = form.querySelector(".save-btn") as HTMLButtonElement | null;
+        if (saveBtn) saveBtn.textContent = "Save";
+
+        let eventIdInput = form.querySelector('input[name="event_id"]') as HTMLInputElement | null;
+        if (!eventIdInput) {
+          eventIdInput = document.createElement("input");
+          eventIdInput.type = "hidden";
+          eventIdInput.name = "event_id";
+          form.insertBefore(eventIdInput, form.firstChild);
+        }
+        eventIdInput.value = String(ev.id);
+
+        const titleInput = form.querySelector("#title") as HTMLInputElement;
+        if (titleInput) titleInput.value = ev.title;
+        const startInput = form.querySelector("#start_date") as HTMLInputElement;
+        if (startInput) startInput.value = ev.start_date;
+        const endInput = form.querySelector("#end_date") as HTMLInputElement;
+        if (endInput) endInput.value = ev.end_date ?? "";
+        const groupInput = form.querySelector("#group_name") as HTMLInputElement;
+        if (groupInput) groupInput.value = ev.group_name;
+        const notesInput = form.querySelector("#notes") as HTMLTextAreaElement;
+        if (notesInput) notesInput.value = ev.notes ?? "";
+
         addDialog.showModal();
       }
 
@@ -188,6 +200,24 @@ try {
       }
 
       function buildRowHtml(ev: { id: number; title: string; start_date: string; end_date: string | null; notes: string | null; created_by: string; group_name: string }) {
+        const modify = canModify(ev.created_by);
+        const actionsHtml = modify
+          ? `<div class="menu">
+              <button class="menu-trigger" type="button" aria-label="Open actions menu">⋯</button>
+              <div class="menu-panel" hidden>
+                <button class="edit"
+                  data-id="${ev.id}"
+                  data-title="${escapeHtml(ev.title)}"
+                  data-start="${ev.start_date}"
+                  data-end="${ev.end_date ?? ""}"
+                  data-group="${escapeHtml(ev.group_name)}"
+                  data-notes="${escapeHtml(ev.notes ?? "")}"
+                  type="button">Edit</button>
+                <button class="delete" data-id="${ev.id}" type="button">Delete</button>
+              </div>
+            </div>`
+          : "";
+
         return `<tr data-id="${ev.id}">
           <td><strong>${escapeHtml(ev.title)}</strong></td>
           <td>${escapeHtml(ev.start_date)}</td>
@@ -195,14 +225,7 @@ try {
           <td>${escapeHtml(ev.group_name)}</td>
           <td>${escapeHtml(ev.created_by)}</td>
           <td class="notes">${escapeHtml(ev.notes || "")}</td>
-          <td class="actions">
-            <div class="menu">
-              <button class="menu-trigger" type="button" aria-label="Open actions menu">⋯</button>
-              <div class="menu-panel" hidden>
-                <button class="delete" data-id="${ev.id}" type="button">Delete</button>
-              </div>
-            </div>
-          </td>
+          <td class="actions">${actionsHtml}</td>
         </tr>`;
       }
 
@@ -247,9 +270,9 @@ try {
 
       async function fetchEvents() {
         const params = new URLSearchParams({
-          page: String(state.page),
-          pageSize: String(state.pageSize),
-          search: state.search,
+          page: String(appState.page),
+          pageSize: String(appState.pageSize),
+          search: appState.search,
         });
         const res = await fetch("/api/events?" + params.toString());
         if (!res.ok) return;
@@ -258,19 +281,19 @@ try {
         if (!parsed.success) return;
         const data = parsed.data;
 
-        state.page = data.page;
+        appState.page = data.page;
 
         const tbody = document.querySelector("tbody") as HTMLTableSectionElement;
         const colCount = 7;
 
         if (!data.events || data.events.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="' + colCount + '" class="empty">' + (state.search ? "No matching events" : "No events yet") + '</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="' + colCount + '" class="empty">' + (appState.search ? "No matching events" : "No events yet") + '</td></tr>';
         } else {
           tbody.innerHTML = data.events.map(buildRowHtml).join("");
         }
 
-        updateRangeInfo(data.total, data.page, state.pageSize);
-        renderPagination(data.total, data.page, state.pageSize);
+        updateRangeInfo(data.total, data.page, appState.pageSize);
+        renderPagination(data.total, data.page, appState.pageSize);
       }
 
       openAddButton.addEventListener("click", openAddDialog);
@@ -281,9 +304,18 @@ try {
         e.preventDefault();
         const data = new FormData(form);
         const body = Object.fromEntries(data.entries());
+        const eventId = body.event_id as string | undefined;
 
-        const res = await fetch("/api/events", {
-          method: "POST",
+        let url = "/api/events";
+        let method = "POST";
+        if (eventId) {
+          url = "/api/events/" + eventId;
+          method = "PUT";
+          delete body.event_id;
+        }
+
+        const res = await fetch(url, {
+          method,
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body),
         });
@@ -291,14 +323,16 @@ try {
         if (!res.ok) {
           const json = await res.json();
           const parsed = errorResponseSchema.safeParse(json);
-          showToast(parsed.success ? String(parsed.data.error) : "Failed to create event", "error");
+          showToast(parsed.success ? String(parsed.data.error) : "Failed to save event", "error");
           return;
         }
 
         closeAddDialog();
         form.reset();
-        state.page = 1;
-        state.search = "";
+        const eventIdInput = form.querySelector('input[name="event_id"]') as HTMLInputElement | null;
+        if (eventIdInput) eventIdInput.remove();
+        appState.page = 1;
+        appState.search = "";
         if (searchInput) searchInput.value = "";
         await fetchEvents();
       });
@@ -307,8 +341,8 @@ try {
         searchInput.addEventListener("input", () => {
           clearTimeout(searchTimer);
           searchTimer = setTimeout(() => {
-            state.search = searchInput.value;
-            state.page = 1;
+            appState.search = searchInput.value;
+            appState.page = 1;
             fetchEvents();
           }, 300);
         });
@@ -320,7 +354,7 @@ try {
           if (!btn || btn.disabled) return;
           const newPage = Number(btn.dataset.page);
           if (isNaN(newPage) || newPage < 1) return;
-          state.page = newPage;
+          appState.page = newPage;
           fetchEvents();
         });
       }
@@ -348,6 +382,20 @@ try {
           const wasOpen = !panel.hidden;
           closeMenus();
           panel.hidden = wasOpen;
+          return;
+        }
+
+        if (target.classList.contains("edit")) {
+          closeMenus();
+          const editData = {
+            id: Number(target.dataset.id),
+            title: target.dataset.title || "",
+            start_date: target.dataset.start || "",
+            end_date: target.dataset.end || null,
+            group_name: target.dataset.group || "",
+            notes: target.dataset.notes || null,
+          };
+          openEditDialog(editData);
           return;
         }
 

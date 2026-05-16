@@ -10,6 +10,7 @@ if (!session) {
 const isAdmin = isAdminUser(session);
 
 import { getAllEvents } from "../lib/db";
+import Header from "../components/Header.astro";
 import type { Event } from "../lib/db";
 
 let events: Event[] = [];
@@ -46,62 +47,6 @@ try {
         overflow: hidden;
         height: 100dvh;
         width: 100vw;
-      }
-
-      .header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.5rem 1rem;
-        background: linear-gradient(180deg, #0d1525 0%, #0a0e17 100%);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        z-index: 10;
-        position: relative;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-
-      .header h1 {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #ccc;
-        letter-spacing: 0.02em;
-      }
-
-      .header-actions {
-        display: flex;
-        gap: 0.4rem;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-
-      .nav-btn,
-      .logout-btn {
-        padding: 0.3rem 0.7rem;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 6px;
-        cursor: pointer;
-        font: inherit;
-        font-size: 0.78rem;
-        color: #999;
-        text-decoration: none;
-        display: inline-block;
-        transition: all 0.15s;
-      }
-      .nav-btn:hover,
-      .logout-btn:hover {
-        background: rgba(255, 255, 255, 0.08);
-        color: #ccc;
-      }
-
-      .user-chip {
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 999px;
-        padding: 0.25rem 0.65rem;
-        font-size: 0.75rem;
-        color: #888;
-        background: rgba(255, 255, 255, 0.03);
       }
 
       canvas {
@@ -332,12 +277,6 @@ try {
       }
 
       @media (min-width: 768px) {
-        .header {
-          padding: 0.6rem 1.5rem;
-        }
-        .header h1 {
-          font-size: 1.1rem;
-        }
         .hint {
           bottom: 1.5rem;
         }
@@ -345,23 +284,13 @@ try {
     </style>
   </head>
   <body>
-    <div class="header">
-      <h1>Timeline</h1>
-      <div class="header-actions">
-        <span class="user-chip">{session.fullName} (@{session.username})</span>
-        {
-          isAdmin && (
-            <a href="/admin" class="nav-btn">
-              Admin
-            </a>
-          )
-        }
-        <a href="/app" class="nav-btn">Back to list</a>
-        <form method="POST" action="/api/logout" style="display:contents">
-          <button class="logout-btn" type="submit">Sign out</button>
-        </form>
-      </div>
-    </div>
+    <Header
+      session={{ fullName: session.fullName, username: session.username }}
+      isAdmin={isAdmin}
+      title="Timeline"
+      navLinks={[{ href: "/app", label: "Back to list" }]}
+      variant="dark"
+    />
 
     <canvas id="timeline-canvas"></canvas>
     <div class="hint" id="hint">

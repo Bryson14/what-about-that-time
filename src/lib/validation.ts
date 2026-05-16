@@ -36,12 +36,6 @@ export const updateUserGroupsSchema = z.object({
   allowedGroups: z.array(z.string().min(1).max(100)).min(1, "at least one group is required"),
 });
 
-export type CreateEventInput = z.infer<typeof createEventSchema>;
-export type UpdateEventInput = z.infer<typeof updateEventSchema>;
-export type PaginationInput = z.infer<typeof paginationSchema>;
-export type CreateUserInput = z.infer<typeof createUserSchema>;
-export type UpdateUserGroupsInput = z.infer<typeof updateUserGroupsSchema>;
-
 export const errorResponseSchema = z.object({
   error: z.union([z.string(), z.array(z.any())]),
 });
@@ -61,10 +55,6 @@ export const paginatedEventsResponseSchema = z.object({
   page: z.number(),
   pageSize: z.number(),
   totalPages: z.number(),
-});
-
-export const eventCreatedResponseSchema = z.object({
-  id: z.number(),
 });
 
 export const storedUserSchema = z.object({
