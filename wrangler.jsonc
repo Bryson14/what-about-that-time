@@ -10,6 +10,12 @@
 		"directory": "./dist",
 		"binding": "ASSETS"
 	},
+	"routes": [
+		{
+			"custom_domain": true,
+			"pattern": "timeline.smiling.dev"
+		}
+	],
 	"observability": {
 		"enabled": true
 	},
