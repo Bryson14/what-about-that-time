@@ -11,7 +11,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "deploy": "astro build && wrangler deploy",
-    "generate-types": "wrangler types"
+    "generate-types": "wrangler types",
+    "create-admin": "node scripts/create-admin.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^13.5.0",

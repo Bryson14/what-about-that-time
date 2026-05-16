@@ -1,4 +1,5 @@
 {
+	"$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
 	"compatibility_date": "2026-05-13",
 	"compatibility_flags": [
 		"global_fetch_strictly_public"
@@ -17,12 +18,6 @@
 			"binding": "what_about_that_time_events",
 			"database_name": "what-about-that-time-events",
 			"database_id": "0da537fe-34be-4aaf-8807-9badf21ed292"
-		}
-	],
-	"kv_namespaces": [
-		{
-			"binding": "what_about_that_time_users",
-			"id": "REPLACE_WITH_USERS_KV_NAMESPACE_ID"
 		}
 	]
 }

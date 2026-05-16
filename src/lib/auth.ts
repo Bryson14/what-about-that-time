@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
 
 export const AUTH_COOKIE = "auth_session";
-export const ADMIN_USERNAME = "bryson";
 
 const USER_PREFIX = "user:";
 const SESSION_PREFIX = "session:";
@@ -14,17 +13,19 @@ const MAX_PASSWORD_LENGTH = 128;
 export interface SessionUser {
   username: string;
   fullName: string;
+  role: "admin" | "user";
 }
 
 interface StoredUser {
   fullName: string;
+  role: "admin" | "user";
   passwordHash: string;
   salt: string;
 }
 
 const encoder = new TextEncoder();
 
-const usersKv = () => env.what_about_that_time_users;
+const usersKv = () => env.SESSION;
 
 function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
@@ -104,6 +105,7 @@ export async function authenticateUser(username: string, password: string): Prom
   return {
     username: normalized,
     fullName: user.fullName,
+    role: user.role,
   };
 }
 
@@ -130,7 +132,7 @@ export async function getSessionFromRequest(request: Request): Promise<SessionUs
     return null;
   }
 
-  return session;
+  return { ...session, role: user.role };
 }
 
 export async function isAuthenticated(request: Request): Promise<boolean> {
@@ -139,7 +141,7 @@ export async function isAuthenticated(request: Request): Promise<boolean> {
 }
 
 export function isAdminUser(user: SessionUser): boolean {
-  return user.username === ADMIN_USERNAME;
+  return user.role === "admin";
 }
 
 export function buildAuthSetCookie(token: string): string {
@@ -153,6 +155,7 @@ export function buildAuthClearCookie(): string {
 export interface UserSummary {
   username: string;
   fullName: string;
+  role: "admin" | "user";
 }
 
 export async function listUsers(): Promise<UserSummary[]> {
@@ -161,7 +164,7 @@ export async function listUsers(): Promise<UserSummary[]> {
     keys.keys.map(async ({ name }) => {
       const record = await usersKv().get<StoredUser>(name, "json");
       if (!record) return null;
-      return { username: name.slice(USER_PREFIX.length), fullName: record.fullName };
+      return { username: name.slice(USER_PREFIX.length), fullName: record.fullName, role: record.role };
     })
   );
 
@@ -170,7 +173,7 @@ export async function listUsers(): Promise<UserSummary[]> {
     .sort((a, b) => a.username.localeCompare(b.username));
 }
 
-export async function createUser(username: string, password: string, fullName: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function createUser(username: string, password: string, fullName: string, role: "admin" | "user" = "user"): Promise<{ ok: true } | { ok: false; error: string }> {
   const normalized = normalizeUsername(username);
   const trimmedFullName = fullName.trim();
 
@@ -199,6 +202,7 @@ export async function createUser(username: string, password: string, fullName: s
     fullName: trimmedFullName,
     passwordHash,
     salt,
+    role,
   };
 
   await usersKv().put(key, JSON.stringify(payload));
@@ -207,12 +211,12 @@ export async function createUser(username: string, password: string, fullName: s
 
 export async function deleteUser(username: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const normalized = normalizeUsername(username);
-  if (normalized === ADMIN_USERNAME) return { ok: false, error: "cannot delete admin user" };
+
+  const storedUser = await getStoredUser(normalized);
+  if (!storedUser) return { ok: false, error: "user not found" };
+  if (storedUser.role === "admin") return { ok: false, error: "cannot delete admin user" };
 
   const key = userKey(normalized);
-  const existing = await usersKv().get(key);
-  if (!existing) return { ok: false, error: "user not found" };
-
   await usersKv().delete(key);
 
   const sessions = await usersKv().list({ prefix: SESSION_PREFIX });

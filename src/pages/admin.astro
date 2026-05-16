@@ -1,5 +1,5 @@
 ---
-import { ADMIN_USERNAME, getSessionFromRequest, isAdminUser, listUsers } from "../lib/auth";
+import { getSessionFromRequest, isAdminUser, listUsers } from "../lib/auth";
 
 const session = await getSessionFromRequest(Astro.request);
 if (!session) {
@@ -134,7 +134,7 @@ const users = await listUsers();
 
       <div class="card">
         <h2 style="font-size:1.1rem;margin-bottom:.25rem;">Contributors</h2>
-        <p class="muted" style="margin-bottom:.75rem;">@{ADMIN_USERNAME} cannot be removed.</p>
+        <p class="muted" style="margin-bottom:.75rem;">Admin users cannot be removed.</p>
         <table>
           <thead>
             <tr>
@@ -149,7 +149,7 @@ const users = await listUsers();
                 <td><strong>@{user.username}</strong></td>
                 <td>{user.fullName}</td>
                 <td>
-                  {user.username === ADMIN_USERNAME ? (
+                  {user.role === "admin" ? (
                     <span class="muted">Owner</span>
                   ) : (
                     <button class="delete-btn" data-username={user.username} type="button">Remove</button>
