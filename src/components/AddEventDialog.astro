@@ -1,30 +1,75 @@
+---
+export interface Props {
+  isAdmin?: boolean;
+  userGroups?: string[];
+  eventId?: number;
+  editTitle?: string;
+  editStartDate?: string;
+  editEndDate?: string | null;
+  editGroup?: string;
+  editNotes?: string | null;
+}
+const {
+  isAdmin = false,
+  userGroups = [],
+  eventId,
+  editTitle,
+  editStartDate,
+  editEndDate,
+  editGroup,
+  editNotes,
+} = Astro.props;
+
+const isEditMode = eventId !== undefined;
+const dialogTitle = isEditMode ? "Edit Event" : "Add Event";
+const submitLabel = isEditMode ? "Save" : "Add";
+const defaultGroup = userGroups[0] ?? "default";
+const groupValue = editGroup ?? defaultGroup;
+---
+
 <dialog id="add-dialog" class="event-dialog">
-  <form id="event-form" method="dialog">
+  <form id="event-form">
+    {isEditMode && <input type="hidden" name="event_id" value={eventId} />}
     <div class="dialog-head">
-      <h2>Add Event</h2>
+      <h2>{dialogTitle}</h2>
       <button id="close-dialog" class="icon-btn" type="button" aria-label="Close">×</button>
     </div>
     <div class="form-grid">
       <div class="field">
         <label for="title">Title</label>
-        <input id="title" name="title" required />
+        <input id="title" name="title" required maxlength="200" value={editTitle ?? ""} />
       </div>
       <div class="field">
         <label for="start_date">Start Date</label>
-        <input id="start_date" name="start_date" type="date" required />
+        <input id="start_date" name="start_date" type="date" required value={editStartDate ?? ""} />
       </div>
       <div class="field">
         <label for="end_date">End Date <em>(Optional)</em></label>
-        <input id="end_date" name="end_date" type="date" />
+        <input id="end_date" name="end_date" type="date" value={editEndDate ?? ""} />
+      </div>
+      <div class="field">
+        <label for="group_name">Group</label>
+        {isAdmin || userGroups.length > 1 ? (
+          <input id="group_name" name="group_name" required maxlength="100" list="group-list" value={groupValue} />
+        ) : (
+          <input id="group_name" name="group_name" required maxlength="100" readonly value={groupValue} />
+        )}
+        {userGroups.length > 0 && (
+          <datalist id="group-list">
+            {userGroups.map((g) => (
+              <option value={g}>{g}</option>
+            ))}
+          </datalist>
+        )}
       </div>
       <div class="field">
         <label for="notes">Notes <em>(Optional)</em></label>
-        <textarea id="notes" name="notes" rows="2"></textarea>
+        <textarea id="notes" name="notes" rows="2" maxlength="5000">{editNotes ?? ""}</textarea>
       </div>
     </div>
     <div class="dialog-actions">
       <button id="cancel-dialog" class="cancel-btn" type="button">Cancel</button>
-      <button class="save-btn" type="submit">Add</button>
+      <button class="save-btn" type="submit">{submitLabel}</button>
     </div>
   </form>
 </dialog>

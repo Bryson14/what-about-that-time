@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "workspaces": {
+    "packages": ["."]
+  },
+  "rules": {
+    "unused-dependencies": "warn"
+  },
+  "ignorePatterns": ["worker-configuration.d.ts"]
+}

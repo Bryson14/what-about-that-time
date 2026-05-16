@@ -41,3 +41,7 @@ All commands are run from the root of the project, from a terminal:
 ## 👀 Want to learn more?
 
 Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+
+## ☁️ Cloudflare setup notes
+
+- In `wrangler.jsonc`, replace `REPLACE_WITH_USERS_KV_NAMESPACE_ID` with your real Cloudflare KV namespace ID for user/session storage before deploying.

@@ -5,6 +5,7 @@ declare namespace Cloudflare {
 	interface Env {
 		what_about_that_time_events: D1Database;
 		ASSETS: Fetcher;
+		SESSION: KVNamespace;
 	}
 }
 interface Env extends Cloudflare.Env {}
