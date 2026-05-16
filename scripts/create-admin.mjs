@@ -42,7 +42,8 @@ if (!fullName.trim()) {
 }
 
 const salt = crypto.randomBytes(16).toString("hex");
-const passwordHash = toHex(crypto.pbkdf2Sync(password, salt, ITERATIONS, KEYLEN, ALGO));
+const saltBytes = Buffer.from(salt, "hex");
+const passwordHash = toHex(crypto.pbkdf2Sync(password, saltBytes, ITERATIONS, KEYLEN, ALGO));
 
 const payload = JSON.stringify({
   fullName: fullName.trim(),
@@ -55,7 +56,7 @@ const remoteFlag = isRemote ? " --remote" : "";
 
 console.log(`Creating admin user: ${normalized}`);
 execSync(
-  `npx wrangler kv key put --namespace-id 272207359105404bb8d60f29ffb626ca --remote "user:${normalized}" '${payload}'${remoteFlag}`,
+  `npx wrangler kv key put --namespace-id 272207359105404bb8d60f29ffb626ca "user:${normalized}" '${payload}'${remoteFlag}`,
   { stdio: "inherit" }
 );
 
