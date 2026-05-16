@@ -1,5 +1,7 @@
 ---
 import { getSessionFromRequest, isAdminUser, listUsers } from "../lib/auth";
+import { logger } from "../lib/logging";
+import type { UserSummary } from "../lib/auth";
 
 const session = await getSessionFromRequest(Astro.request);
 if (!session) {
@@ -10,7 +12,12 @@ if (!isAdminUser(session)) {
   return Astro.redirect("/app");
 }
 
-const users = await listUsers();
+let users: UserSummary[] = [];
+try {
+  users = await listUsers();
+} catch (err) {
+  logger.error("failed to load user list for admin dashboard", { username: session.username, error: String(err) });
+}
 ---
 
 <html lang="en">
@@ -163,9 +170,9 @@ const users = await listUsers();
     </div>
 
     <script>
-      const form = document.getElementById("add-user-form");
-      const formError = document.getElementById("form-error");
-      const usersBody = document.getElementById("users-body");
+      const form = document.getElementById("add-user-form") as HTMLFormElement;
+      const formError = document.getElementById("form-error") as HTMLElement;
+      const usersBody = document.getElementById("users-body") as HTMLElement;
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();

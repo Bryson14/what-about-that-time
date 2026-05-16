@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import crypto from "node:crypto";
 
 const ALGO = "sha256";
-const ITERATIONS = 120_000;
+const ITERATIONS = 100_000;
 const KEYLEN = 32;
 
 function toHex(bytes) {
@@ -55,7 +55,7 @@ const remoteFlag = isRemote ? " --remote" : "";
 
 console.log(`Creating admin user: ${normalized}`);
 execSync(
-  `npx wrangler kv key put --binding SESSION "user:${normalized}" '${payload}'${remoteFlag}`,
+  `npx wrangler kv key put --namespace-id 272207359105404bb8d60f29ffb626ca --remote "user:${normalized}" '${payload}'${remoteFlag}`,
   { stdio: "inherit" }
 );
 

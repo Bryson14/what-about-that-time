@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { AUTH_COOKIE, buildAuthClearCookie, destroySession } from "../../lib/auth";
+import { logger } from "../../lib/logging";
 
 export const POST: APIRoute = async (context) => {
   const cookie = context.request.headers.get("cookie") ?? "";
@@ -10,7 +11,7 @@ export const POST: APIRoute = async (context) => {
       try {
         await destroySession(decodeURIComponent(token));
       } catch {
-        // Ignore malformed cookie values.
+        logger.debug("failed to destroy session during logout", { token: token.slice(0, 8) });
       }
     }
   }

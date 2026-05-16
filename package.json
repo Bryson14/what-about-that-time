@@ -15,9 +15,11 @@
     "create-admin": "node scripts/create-admin.mjs"
   },
   "dependencies": {
+    "@astrojs/check": "^0.9.9",
     "@astrojs/cloudflare": "^13.5.0",
     "@tanstack/table-core": "^8.21.3",
     "astro": "^6.3.1",
+    "typescript": "^6.0.3",
     "wrangler": "^4.90.1",
     "zod": "^4.4.3"
   },

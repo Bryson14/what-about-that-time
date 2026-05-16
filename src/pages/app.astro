@@ -1,5 +1,6 @@
 ---
 import { getSessionFromRequest, isAdminUser } from "../lib/auth";
+import { logger } from "../lib/logging";
 
 const session = await getSessionFromRequest(Astro.request);
 if (!session) {
@@ -12,7 +13,13 @@ import EventsTable from "../components/EventsTable.astro";
 import AddEventDialog from "../components/AddEventDialog.astro";
 import Toast from "../components/Toast.astro";
 
-const events = await getAllEvents();
+let events: Event[] = [];
+try {
+  events = await getAllEvents();
+} catch (err) {
+  logger.error("failed to load events", { username: session.username, error: String(err) });
+}
+
 const isAdmin = isAdminUser(session);
 ---
 

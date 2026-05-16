@@ -1,5 +1,6 @@
 ---
 import { getSessionFromRequest, isAdminUser } from "../lib/auth";
+import { logger } from "../lib/logging";
 
 const session = await getSessionFromRequest(Astro.request);
 if (!session) {
@@ -7,7 +8,15 @@ if (!session) {
 }
 
 import { getAllEvents } from "../lib/db";
-const events = await getAllEvents();
+import type { Event } from "../lib/db";
+
+let events: Event[] = [];
+try {
+  events = await getAllEvents();
+} catch (err) {
+  logger.error("failed to load events for timeline", { username: session.username, error: String(err) });
+}
+
 const isAdmin = isAdminUser(session);
 ---
 
