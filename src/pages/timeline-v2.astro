@@ -266,6 +266,10 @@ try {
         transition: width 0.3s;
       }
 
+      .hidden-hint {
+        display: none;
+      }
+
       /* ── Event count badge ────────────────────────────── */
       .event-count {
         position: fixed;
@@ -334,7 +338,7 @@ try {
     <!-- Hint overlay -->
     <div class="hud-hint" id="hud-hint">
       <span id="hint-desktop">WASD / arrows to drive</span>
-      <span id="hint-mobile" style="display:none">use controls to drive</span>
+      <span id="hint-mobile" class="hidden-hint">use controls to drive</span>
       <br />drive through pillars to explore events
     </div>
 
@@ -812,8 +816,8 @@ try {
         const desktopHint = document.getElementById("hint-desktop");
         const mobileHint = document.getElementById("hint-mobile");
         if (isTouch && desktopHint && mobileHint) {
-          desktopHint.style.display = "none";
-          mobileHint.style.display = "inline";
+          desktopHint.classList.add("hidden-hint");
+          mobileHint.classList.remove("hidden-hint");
         }
       }
 
@@ -862,7 +866,10 @@ try {
         truck.position.addScaledVector(_dir, speed);
 
         /* Soft road-edge clamp */
-        truck.position.x = Math.max(-ROAD_W / 2 + 3, Math.min(ROAD_W / 2 - 3, truck.position.x));
+        const ROAD_HALF = ROAD_W / 2;
+        const CLAMP_MIN_X = -ROAD_HALF + 3;
+        const CLAMP_MAX_X = ROAD_HALF - 3;
+        truck.position.x = Math.max(CLAMP_MIN_X, Math.min(CLAMP_MAX_X, truck.position.x));
 
         /* ── Camera follow ── */
         _euler.set(0, heading, 0);
