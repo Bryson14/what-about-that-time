@@ -4,7 +4,13 @@
   import Toast from './Toast.svelte';
   import { QueryClient, QueryClientProvider, createMutation, createQuery } from '@tanstack/svelte-query';
   import type { SortingState } from '@tanstack/svelte-table';
-  import { errorResponseSchema, paginatedEventsResponseSchema } from '../lib/validation';
+  import {
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    MIN_PAGE_SIZE,
+    errorResponseSchema,
+    paginatedEventsResponseSchema,
+  } from '../lib/validation';
   import { logger } from '../lib/logging';
 
   interface EventItem {
@@ -29,7 +35,7 @@
     initialEvents = [],
     initialTotal = 0,
     initialPage = 1,
-    pageSize = 10,
+    pageSize = DEFAULT_PAGE_SIZE,
     initialSearch = '',
     userGroups = [],
     demo = false,
@@ -329,9 +335,34 @@
   }
 
   function onPageChange(p: number) {
-    page = p;
+    page = Math.max(1, p);
     if (demo) applyDemoFilter();
   }
+
+  function onPageSizeChange(nextPageSize: number) {
+    if (!Number.isInteger(nextPageSize) || nextPageSize < MIN_PAGE_SIZE || nextPageSize > MAX_PAGE_SIZE) return;
+    if (nextPageSize === pageSize) return;
+    pageSize = nextPageSize;
+    page = 1;
+    if (demo) applyDemoFilter();
+  }
+
+  $effect(() => {
+    if (typeof window === 'undefined' || demo) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set('page', String(page));
+    params.set('pageSize', String(pageSize));
+    if (search) {
+      params.set('search', search);
+    } else {
+      params.delete('search');
+    }
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl === currentUrl) return;
+    window.history.replaceState({}, '', nextUrl);
+  });
 
   async function handleDelete(evId: number, title: string) {
     if (!window.confirm(`Delete "${title}"?`)) return;
@@ -363,6 +394,7 @@
       onDelete={handleDelete}
       onSearch={onSearch}
       onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
       bind:sorting
     />
   </div>

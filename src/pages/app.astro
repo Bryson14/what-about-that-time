@@ -1,6 +1,7 @@
 ---
 import { getSessionFromRequest, isAdminUser } from "../lib/auth";
 import { logger } from "../lib/logging";
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "../lib/validation";
 
 const session = await getSessionFromRequest(Astro.request);
 if (!session) {
@@ -16,12 +17,17 @@ const isAdmin = isAdminUser(session);
 let events: Event[] = [];
 let total = 0;
 let currentPage = 1;
-let pageSize = 10;
+let pageSize = DEFAULT_PAGE_SIZE;
 let search = "";
 
 try {
   const url = new URL(Astro.request.url);
-  currentPage = Number(url.searchParams.get("page")) || 1;
+  const parsedPage = Number(url.searchParams.get("page"));
+  currentPage = Number.isInteger(parsedPage) && parsedPage >= 1 ? parsedPage : 1;
+  const parsedPageSize = Number(url.searchParams.get("pageSize"));
+  pageSize = Number.isInteger(parsedPageSize) && parsedPageSize >= MIN_PAGE_SIZE && parsedPageSize <= MAX_PAGE_SIZE
+    ? parsedPageSize
+    : DEFAULT_PAGE_SIZE;
   search = url.searchParams.get("search") || "";
   const groups = isAdmin ? undefined : session.allowedGroups;
   const result = await getPaginatedEvents(currentPage, pageSize, search, groups);

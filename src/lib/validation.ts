@@ -2,6 +2,9 @@ import { z } from "zod";
 
 export const DEFAULT_GROUPS = ["Adams Family"];
 export const ALL_GROUPS = [...DEFAULT_GROUPS, "Meiling Family"];
+export const MIN_PAGE_SIZE = 1;
+export const MAX_PAGE_SIZE = 100;
+export const DEFAULT_PAGE_SIZE = 10;
 
 export const createEventSchema = z.object({
   title: z.string().min(1, "title is required").max(200, "title must be at most 200 characters"),
@@ -21,7 +24,7 @@ export const updateEventSchema = z.object({
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  pageSize: z.coerce.number().int().min(MIN_PAGE_SIZE).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
   search: z.string().optional().default(""),
 });
 
