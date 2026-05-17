@@ -38,9 +38,14 @@
   let tagsError = $state('');
   let subjectsError = $state('');
 
-  onMount(() => {
-    fetch('/api/tags').then(r => r.ok ? r.json() : []).then((d: Tag[]) => { tagsList = d; }).catch(() => {});
-    fetch('/api/subjects').then(r => r.ok ? r.json() : []).then((d: Subject[]) => { subjectsList = d; }).catch(() => {});
+  onMount(async () => {
+    try {
+      const [tagsRes, subjectsRes] = await Promise.all([fetch('/api/tags'), fetch('/api/subjects')]);
+      if (tagsRes.ok) tagsList = await tagsRes.json();
+      if (subjectsRes.ok) subjectsList = await subjectsRes.json();
+    } catch {
+      // non-critical; lists will remain empty
+    }
   });
 
   function showToast(msg: string, type: 'success' | 'error' = 'success') {

@@ -110,10 +110,15 @@
   let dialogTitle = $derived(editId !== null ? 'Edit Event' : 'Add Event');
   let submitLabel = $derived(editId !== null ? 'Save' : 'Add');
 
-  onMount(() => {
+  onMount(async () => {
     if (demo) return;
-    fetch('/api/tags').then(r => r.ok ? r.json() : []).then((data: Tag[]) => { availableTags = data; }).catch(() => {});
-    fetch('/api/subjects').then(r => r.ok ? r.json() : []).then((data: Subject[]) => { availableSubjects = data; }).catch(() => {});
+    try {
+      const [tagsRes, subjectsRes] = await Promise.all([fetch('/api/tags'), fetch('/api/subjects')]);
+      if (tagsRes.ok) availableTags = await tagsRes.json();
+      if (subjectsRes.ok) availableSubjects = await subjectsRes.json();
+    } catch {
+      // non-critical; tags/subjects will remain empty
+    }
   });
 
   async function getErrorMessage(response: Response, fallback: string): Promise<string> {
