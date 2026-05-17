@@ -44,6 +44,7 @@
     onDelete = (_id: number, _title: string) => {},
     onSearch = (_value: string) => {},
     onPageChange = (_page: number) => {},
+    onPageSizeChange = (_pageSize: number) => {},
     sorting = [],
     onSortingChange = (_updater: SortingState | ((old: SortingState) => SortingState)) => {},
   }: {
@@ -57,6 +58,7 @@
     onDelete?: (id: number, title: string) => void;
     onSearch?: (value: string) => void;
     onPageChange?: (page: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
     sorting?: SortingState;
     onSortingChange?: (updater: SortingState | ((old: SortingState) => SortingState)) => void;
   } = $props();
@@ -121,6 +123,12 @@
     searchTimer = setTimeout(() => onSearch(value), 300);
   }
 
+  function onPageSizeSelect(e: Event) {
+    const next = Number((e.target as HTMLSelectElement).value);
+    if (!Number.isInteger(next) || next < 1) return;
+    onPageSizeChange(next);
+  }
+
   function toggleMenu(evId: number) {
     openMenuId = openMenuId === evId ? null : evId;
   }
@@ -143,6 +151,15 @@
     class="search-input"
     autocomplete="off"
   />
+  <label class="page-size-label">
+    Rows
+    <select class="page-size-select" value={String(pageSize)} onchange={onPageSizeSelect}>
+      <option value="10">10</option>
+      <option value="25">25</option>
+      <option value="50">50</option>
+      <option value="100">100</option>
+    </select>
+  </label>
   <span class="range-info">{total === 0 ? 'No results' : `${startEntry}–${endEntry} of ${total}`}</span>
 </div>
 
@@ -259,13 +276,31 @@
     border: 1px solid #ccc;
     border-radius: 4px;
     font: inherit;
-    font-size: .9rem;
+    font-size: 1rem;
     min-width: 200px;
   }
 
   .range-info {
     font-size: .85rem;
     color: #777;
+  }
+
+  .page-size-label {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .85rem;
+    color: #555;
+  }
+
+  .page-size-select {
+    padding: .35rem .5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 1rem;
+    background: #fff;
+    color: #1a1a1a;
   }
 
   .table-shell {
@@ -350,6 +385,8 @@
     display: flex;
     flex-direction: column;
     gap: .6rem;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   .event-card {
@@ -357,6 +394,9 @@
     border-radius: 10px;
     box-shadow: 0 1px 3px rgba(0,0,0,.1);
     padding: .75rem .85rem;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .card-header {
@@ -370,6 +410,9 @@
   .card-title {
     font-size: 1rem;
     line-height: 1.3;
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .card-notes {
@@ -391,7 +434,9 @@
     background: #f3f3f3;
     border-radius: 4px;
     padding: .15rem .35rem;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-width: 100%;
   }
 
   .empty-cards {
