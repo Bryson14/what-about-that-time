@@ -386,7 +386,7 @@
     flex-direction: column;
     gap: .6rem;
     max-width: 100%;
-    overflow-x: clip;
+    overflow-x: hidden;
   }
 
   .event-card {
