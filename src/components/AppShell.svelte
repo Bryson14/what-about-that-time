@@ -4,7 +4,13 @@
   import Toast from './Toast.svelte';
   import { QueryClient, QueryClientProvider, createMutation, createQuery } from '@tanstack/svelte-query';
   import type { SortingState } from '@tanstack/svelte-table';
-  import { errorResponseSchema, paginatedEventsResponseSchema } from '../lib/validation';
+  import {
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    MIN_PAGE_SIZE,
+    errorResponseSchema,
+    paginatedEventsResponseSchema,
+  } from '../lib/validation';
   import { logger } from '../lib/logging';
 
   interface EventItem {
@@ -29,7 +35,7 @@
     initialEvents = [],
     initialTotal = 0,
     initialPage = 1,
-    pageSize = 10,
+    pageSize = DEFAULT_PAGE_SIZE,
     initialSearch = '',
     userGroups = [],
     demo = false,
@@ -334,7 +340,7 @@
   }
 
   function onPageSizeChange(nextPageSize: number) {
-    if (!Number.isInteger(nextPageSize) || nextPageSize < 1 || nextPageSize > 100) return;
+    if (!Number.isInteger(nextPageSize) || nextPageSize < MIN_PAGE_SIZE || nextPageSize > MAX_PAGE_SIZE) return;
     if (nextPageSize === pageSize) return;
     pageSize = nextPageSize;
     page = 1;
