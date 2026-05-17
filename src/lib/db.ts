@@ -174,7 +174,7 @@ export async function createGroup(name: string): Promise<number> {
     .run();
   if (result.meta.last_row_id) return result.meta.last_row_id as number;
   const existing = await db().prepare("SELECT id FROM groups WHERE name = ?").bind(name).first<{ id: number }>();
-  if (!existing) throw new Error(`Group upsert failed unexpectedly for '${name}'. This may indicate a database concurrency issue or constraint violation.`);
+  if (!existing) throw new Error("failed to create or find group");
   return existing.id;
 }
 
@@ -196,7 +196,7 @@ export async function createTag(name: string): Promise<number> {
     .run();
   if (result.meta.last_row_id) return result.meta.last_row_id as number;
   const existing = await db().prepare("SELECT id FROM tags WHERE name = ?").bind(name).first<{ id: number }>();
-  if (!existing) throw new Error(`Tag upsert failed unexpectedly for '${name}'. This may indicate a database concurrency issue or constraint violation.`);
+  if (!existing) throw new Error("failed to create or find tag");
   return existing.id;
 }
 
@@ -241,7 +241,7 @@ export async function createSubject(name: string): Promise<number> {
     .run();
   if (result.meta.last_row_id) return result.meta.last_row_id as number;
   const existing = await db().prepare("SELECT id FROM subjects WHERE name = ?").bind(name).first<{ id: number }>();
-  if (!existing) throw new Error(`Subject upsert failed unexpectedly for '${name}'. This may indicate a database concurrency issue or constraint violation.`);
+  if (!existing) throw new Error("failed to create or find subject");
   return existing.id;
 }
 
