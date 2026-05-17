@@ -126,7 +126,7 @@
       pageSize,
       totalPages: Math.max(Math.ceil(initialTotal / pageSize), 1),
     },
-  }));
+  }), () => queryClient);
 
   const saveEventMutation = createMutation(() => ({
     mutationFn: async ({ eventId, body }: EventMutationInput) => {
@@ -156,7 +156,7 @@
     onError: (error) => {
       showToast(error instanceof Error ? error.message : 'Failed to save event', 'error');
     },
-  }));
+  }), () => queryClient);
 
   const deleteEventMutation = createMutation(() => ({
     mutationFn: async (eventId: number) => {
@@ -172,7 +172,7 @@
     onError: (error) => {
       showToast(error instanceof Error ? error.message : 'Failed to delete event', 'error');
     },
-  }));
+  }), () => queryClient);
 
   $effect(() => {
     if (demo && !demoLoaded && typeof window !== 'undefined') {
