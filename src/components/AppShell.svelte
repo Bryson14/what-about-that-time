@@ -303,7 +303,11 @@
       const adds = [...selectedIds].filter(id => !currentIds.has(id));
       const removes = [...currentIds].filter(id => !selectedIds.has(id));
       await Promise.all([
-        ...adds.map(id => fetch(`/api/events/${eventId}/tags`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tag_id: id }) })),
+        ...adds.map(id => fetch(`/api/events/${eventId}/tags`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ tag_id: id }),
+        })),
         ...removes.map(id => fetch(`/api/events/${eventId}/tags/${id}`, { method: 'DELETE' })),
       ]);
     } catch (err) {
@@ -319,7 +323,11 @@
       const adds = [...selectedIds].filter(id => !currentIds.has(id));
       const removes = [...currentIds].filter(id => !selectedIds.has(id));
       await Promise.all([
-        ...adds.map(id => fetch(`/api/events/${eventId}/subjects`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ subject_id: id }) })),
+        ...adds.map(id => fetch(`/api/events/${eventId}/subjects`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ subject_id: id }),
+        })),
         ...removes.map(id => fetch(`/api/events/${eventId}/subjects/${id}`, { method: 'DELETE' })),
       ]);
     } catch (err) {
