@@ -13,6 +13,21 @@
   } from '../lib/validation';
   import { logger } from '../lib/logging';
 
+  interface GroupOption {
+    id: number;
+    name: string;
+  }
+
+  interface Tag {
+    id: number;
+    name: string;
+  }
+
+  interface Subject {
+    id: number;
+    name: string;
+  }
+
   interface EventItem {
     id: number;
     title: string;
@@ -21,12 +36,18 @@
     notes: string | null;
     created_by: string;
     created_at: string;
+    group_id: number;
     group_name: string;
   }
 
   type EventMutationInput = {
     eventId?: number;
     body: Record<string, string>;
+  };
+
+  type EventMutationResult = {
+    eventId: number;
+    isNew: boolean;
   };
 
   let {
@@ -48,7 +69,7 @@
     initialPage?: number;
     pageSize?: number;
     initialSearch?: string;
-    userGroups?: string[];
+    userGroups?: GroupOption[];
     demo?: boolean;
     navLinks?: { href: string; label: string }[];
   } = $props();
@@ -68,8 +89,13 @@
   let editTitle = $state('');
   let editStartDate = $state('');
   let editEndDate = $state('');
-  let editGroup = $state('');
+  let editGroupId = $state<number | null>(null);
   let editNotes = $state('');
+
+  let availableTags = $state<Tag[]>([]);
+  let availableSubjects = $state<Subject[]>([]);
+  let editTagIds = $state<Set<number>>(new Set());
+  let editSubjectIds = $state<Set<number>>(new Set());
 
   let dialogEl: HTMLDialogElement;
   let formEl: HTMLFormElement;
@@ -82,6 +108,12 @@
 
   let dialogTitle = $derived(editId !== null ? 'Edit Event' : 'Add Event');
   let submitLabel = $derived(editId !== null ? 'Save' : 'Add');
+
+  $effect(() => {
+    if (demo || typeof window === 'undefined') return;
+    fetch('/api/tags').then(r => r.ok ? r.json() : []).then((data: Tag[]) => { availableTags = data; }).catch(() => {});
+    fetch('/api/subjects').then(r => r.ok ? r.json() : []).then((data: Subject[]) => { availableSubjects = data; }).catch(() => {});
+  });
 
   async function getErrorMessage(response: Response, fallback: string): Promise<string> {
     try {
@@ -134,8 +166,9 @@
     },
   }), () => queryClient);
 
+  // Returns { eventId, isNew } — isNew is true when a new event was created (POST), false for updates (PUT).
   const saveEventMutation = createMutation(() => ({
-    mutationFn: async ({ eventId, body }: EventMutationInput) => {
+    mutationFn: async ({ eventId, body }: EventMutationInput): Promise<EventMutationResult> => {
       const url = eventId ? `/api/events/${eventId}` : '/api/events';
       const method = eventId ? 'PUT' : 'POST';
       const response = await fetch(url, {
@@ -146,18 +179,15 @@
       if (!response.ok) {
         throw new Error(await getErrorMessage(response, 'Failed to save event'));
       }
-      return { eventId };
-    },
-    onSuccess: async ({ eventId }) => {
-      closeDialog();
-      formEl?.reset();
-      clearEventIdInput();
       if (!eventId) {
-        page = 1;
-        search = '';
+        const data = await response.json();
+        return { eventId: data.id as number, isNew: true };
       }
+      return { eventId, isNew: false };
+    },
+    onSuccess: async ({ eventId, isNew }) => {
       await queryClient.invalidateQueries({ queryKey: ['events'] });
-      showToast(eventId ? 'Event updated' : 'Event added');
+      showToast(isNew ? 'Event added' : 'Event updated');
     },
     onError: (error) => {
       showToast(error instanceof Error ? error.message : 'Failed to save event', 'error');
@@ -247,25 +277,91 @@
     return isAdmin || createdBy === session.username;
   }
 
+  function toggleTag(id: number) {
+    const next = new Set(editTagIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    editTagIds = next;
+  }
+
+  function toggleSubject(id: number) {
+    const next = new Set(editSubjectIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    editSubjectIds = next;
+  }
+
+  async function syncEventTags(eventId: number, selectedIds: Set<number>) {
+    try {
+      const res = await fetch(`/api/events/${eventId}/tags`);
+      const currentTags: Tag[] = res.ok ? await res.json() : [];
+      const currentIds = new Set(currentTags.map(t => t.id));
+      const adds = [...selectedIds].filter(id => !currentIds.has(id));
+      const removes = [...currentIds].filter(id => !selectedIds.has(id));
+      await Promise.all([
+        ...adds.map(id => fetch(`/api/events/${eventId}/tags`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tag_id: id }) })),
+        ...removes.map(id => fetch(`/api/events/${eventId}/tags/${id}`, { method: 'DELETE' })),
+      ]);
+    } catch (err) {
+      logger.warn('failed to sync event tags', { eventId: String(eventId), error: String(err) });
+    }
+  }
+
+  async function syncEventSubjects(eventId: number, selectedIds: Set<number>) {
+    try {
+      const res = await fetch(`/api/events/${eventId}/subjects`);
+      const currentSubjects: Subject[] = res.ok ? await res.json() : [];
+      const currentIds = new Set(currentSubjects.map(s => s.id));
+      const adds = [...selectedIds].filter(id => !currentIds.has(id));
+      const removes = [...currentIds].filter(id => !selectedIds.has(id));
+      await Promise.all([
+        ...adds.map(id => fetch(`/api/events/${eventId}/subjects`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ subject_id: id }) })),
+        ...removes.map(id => fetch(`/api/events/${eventId}/subjects/${id}`, { method: 'DELETE' })),
+      ]);
+    } catch (err) {
+      logger.warn('failed to sync event subjects', { eventId: String(eventId), error: String(err) });
+    }
+  }
+
   function openAddDialog() {
     editId = null;
     editTitle = '';
     editStartDate = '';
     editEndDate = '';
-    editGroup = userGroups[0] ?? 'default';
+    editGroupId = userGroups[0]?.id ?? null;
     editNotes = '';
+    editTagIds = new Set();
+    editSubjectIds = new Set();
     clearEventIdInput();
     dialogEl?.showModal();
   }
 
-  function openEditDialog(ev: EventItem) {
+  async function openEditDialog(ev: EventItem) {
     editId = ev.id;
     editTitle = ev.title;
     editStartDate = ev.start_date;
     editEndDate = ev.end_date ?? '';
-    editGroup = ev.group_name;
+    editGroupId = ev.group_id;
     editNotes = ev.notes ?? '';
+    editTagIds = new Set();
+    editSubjectIds = new Set();
     dialogEl?.showModal();
+    if (!demo) {
+      try {
+        const [tagsRes, subjectsRes] = await Promise.all([
+          fetch(`/api/events/${ev.id}/tags`),
+          fetch(`/api/events/${ev.id}/subjects`),
+        ]);
+        if (tagsRes.ok) {
+          const tags: Tag[] = await tagsRes.json();
+          editTagIds = new Set(tags.map(t => t.id));
+        }
+        if (subjectsRes.ok) {
+          const subjects: Subject[] = await subjectsRes.json();
+          editSubjectIds = new Set(subjects.map(s => s.id));
+        }
+      } catch (err) {
+        logger.warn('failed to load event tags/subjects for edit', { eventId: String(ev.id), error: String(err) });
+      }
+    }
   }
 
   function closeDialog() {
@@ -287,13 +383,16 @@
 
     if (demo) {
       const now = new Date().toISOString();
+      const groupId = Number(body.group_id) || userGroups[0]?.id || 0;
+      const groupName = userGroups.find(g => g.id === groupId)?.name ?? 'General';
       const eventData: EventItem = {
         id: eventId ?? (Math.max(...allEvents.map(e => e.id), 0) + 1),
         title: body.title,
         start_date: body.start_date,
         end_date: body.end_date || null,
         notes: body.notes || null,
-        group_name: body.group_name || 'General',
+        group_id: groupId,
+        group_name: groupName,
         created_by: session.username || 'demo',
         created_at: now,
       };
@@ -313,7 +412,19 @@
       return;
     }
 
-    await saveEventMutation.mutateAsync({ eventId, body });
+    const capturedTagIds = new Set(editTagIds);
+    const capturedSubjectIds = new Set(editSubjectIds);
+
+    const result = await saveEventMutation.mutateAsync({ eventId, body });
+    closeDialog();
+    formEl?.reset();
+    clearEventIdInput();
+    if (result.isNew) {
+      page = 1;
+      search = '';
+    }
+    await syncEventTags(result.eventId, capturedTagIds);
+    await syncEventSubjects(result.eventId, capturedSubjectIds);
   }
 
   function applyDemoFilter() {
@@ -422,18 +533,39 @@
           <input id="end_date" name="end_date" type="date" value={editEndDate} oninput={(e) => editEndDate = (e.target as HTMLInputElement).value} />
         </div>
         <div class="field">
-          <label for="group_name">Group</label>
-          {#if isAdmin || userGroups.length > 1}
-            <input id="group_name" name="group_name" required maxlength="100" list="group-list" value={editGroup} oninput={(e) => editGroup = (e.target as HTMLInputElement).value} />
-            <datalist id="group-list">
-              {#each userGroups as g}
-                <option value={g} />
-              {/each}
-            </datalist>
-          {:else}
-            <input id="group_name" name="group_name" required maxlength="100" readonly value={editGroup} />
-          {/if}
+          <label for="group_id">Group</label>
+          <select id="group_id" name="group_id" required>
+            {#each userGroups as g}
+              <option value={g.id} selected={editGroupId === g.id}>{g.name}</option>
+            {/each}
+          </select>
         </div>
+        {#if !demo && availableTags.length > 0}
+          <div class="field">
+            <label>Tags <em>(Optional)</em></label>
+            <div class="chip-group">
+              {#each availableTags as tag}
+                <label class="chip-label">
+                  <input type="checkbox" checked={editTagIds.has(tag.id)} onchange={() => toggleTag(tag.id)} />
+                  {tag.name}
+                </label>
+              {/each}
+            </div>
+          </div>
+        {/if}
+        {#if !demo && availableSubjects.length > 0}
+          <div class="field">
+            <label>Subjects <em>(Optional)</em></label>
+            <div class="chip-group">
+              {#each availableSubjects as subject}
+                <label class="chip-label">
+                  <input type="checkbox" checked={editSubjectIds.has(subject.id)} onchange={() => toggleSubject(subject.id)} />
+                  {subject.name}
+                </label>
+              {/each}
+            </div>
+          </div>
+        {/if}
         <div class="field">
           <label for="notes">Notes <em>(Optional)</em></label>
           <textarea id="notes" name="notes" rows="2" maxlength="5000" value={editNotes} oninput={(e) => editNotes = (e.target as HTMLTextAreaElement).value}></textarea>
@@ -507,10 +639,30 @@
 
   .field { display: flex; flex-direction: column; gap: .3rem; }
   .field label { font-size: .8rem; font-weight: 600; color: #555; }
-  .field input, .field textarea {
+  .field input, .field textarea, .field select {
     padding: .5rem; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: 1rem;
   }
   .field textarea { resize: vertical; }
+
+  .chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+  }
+  .chip-label {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    font-size: .8rem;
+    font-weight: normal !important;
+    color: #333;
+    background: #f3f3f3;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    padding: .2rem .6rem;
+    cursor: pointer;
+  }
+  .chip-label input[type="checkbox"] { margin: 0; accent-color: #1a1a1a; }
 
   .save-btn {
     padding: .6rem 1rem; background: #1a1a1a; color: #fff;

@@ -9,6 +9,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "A major conflagration that swept through the central parts of London, destroying over 13,000 houses.",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 1,
     group_name: "History",
   },
   {
@@ -19,6 +20,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "The Continental Congress adopted the Declaration of Independence, announcing the separation of the thirteen colonies from Great Britain.",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 1,
     group_name: "History",
   },
   {
@@ -29,6 +31,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "Nicéphore Niépce captured the earliest known surviving photograph, 'View from the Window at Le Gras', using a camera obscura.",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 2,
     group_name: "Technology",
   },
   {
@@ -39,6 +42,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "Alexander Graham Bell made the first successful telephone call, saying 'Mr. Watson, come here, I want to see you.'",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 2,
     group_name: "Technology",
   },
   {
@@ -49,6 +53,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "Orville and Wilbur Wright achieved the first powered, sustained, and controlled airplane flight at Kitty Hawk, North Carolina.",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 2,
     group_name: "Technology",
   },
   {
@@ -59,6 +64,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "The RMS Titanic sank in the North Atlantic Ocean after striking an iceberg during her maiden voyage from Southampton to New York City.",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 1,
     group_name: "History",
   },
   {
@@ -69,6 +75,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "VE Day (Victory in Europe) on May 8 and VJ Day (Victory over Japan) on September 2 marked the end of the deadliest conflict in human history.",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 1,
     group_name: "History",
   },
   {
@@ -79,6 +86,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "Neil Armstrong and Buzz Aldrin became the first humans to walk on the Moon. Armstrong's famous words: 'That's one small step for man, one giant leap for mankind.'",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 3,
     group_name: "Space Exploration",
   },
   {
@@ -89,6 +97,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "The Berlin Wall, which had divided East and West Berlin since 1961, was opened after weeks of civil unrest, marking the beginning of German reunification.",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 1,
     group_name: "History",
   },
   {
@@ -99,6 +108,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "CERN put the World Wide Web software into the public domain, making it freely available for anyone to use and build upon.",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 2,
     group_name: "Technology",
   },
   {
@@ -109,6 +119,7 @@ export const DEMO_EVENTS: Event[] = [
     notes: "Apple released the first iPhone, revolutionizing the smartphone industry with its multi-touch interface and full web browsing capabilities.",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 2,
     group_name: "Technology",
   },
   {
@@ -119,8 +130,14 @@ export const DEMO_EVENTS: Event[] = [
     notes: "The WHO declared COVID-19 a global pandemic. The public health emergency ended in May 2023 after widespread vaccination and declining cases worldwide.",
     created_by: "demo",
     created_at: "2025-01-01T00:00:00Z",
+    group_id: 4,
     group_name: "Health",
   },
 ];
 
-export const DEMO_GROUPS = ["History", "Technology", "Space Exploration", "Health"];
+export const DEMO_GROUPS: { id: number; name: string }[] = [
+  { id: 1, name: "History" },
+  { id: 2, name: "Technology" },
+  { id: 3, name: "Space Exploration" },
+  { id: 4, name: "Health" },
+];

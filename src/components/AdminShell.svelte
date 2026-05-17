@@ -9,6 +9,9 @@
     allowedGroups: string[];
   }
 
+  interface Tag { id: number; name: string; }
+  interface Subject { id: number; name: string; }
+
   let { session, users = [] }: {
     session: { fullName: string; username: string; };
     users?: UserSummary[];
@@ -26,6 +29,19 @@
 
   let editingUser = $state<string | null>(null);
   let editGroups = $state('');
+
+  let tagsList = $state<Tag[]>([]);
+  let subjectsList = $state<Subject[]>([]);
+  let newTagName = $state('');
+  let newSubjectName = $state('');
+  let tagsError = $state('');
+  let subjectsError = $state('');
+
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+    fetch('/api/tags').then(r => r.ok ? r.json() : []).then((d: Tag[]) => { tagsList = d; }).catch(() => {});
+    fetch('/api/subjects').then(r => r.ok ? r.json() : []).then((d: Subject[]) => { subjectsList = d; }).catch(() => {});
+  });
 
   function showToast(msg: string, type: 'success' | 'error' = 'success') {
     toastMsg = msg;
@@ -134,6 +150,44 @@
     showToast('Groups updated');
     setTimeout(() => location.reload(), 500);
   }
+
+  async function handleAddTag() {
+    tagsError = '';
+    const name = newTagName.trim();
+    if (!name) { tagsError = 'Tag name is required.'; return; }
+    const res = await fetch('/api/tags', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      try { const j = await res.json(); tagsError = j?.error ? String(j.error) : 'Unable to create tag.'; } catch { tagsError = 'Unable to create tag.'; }
+      return;
+    }
+    const { id } = await res.json();
+    tagsList = [...tagsList, { id, name }];
+    newTagName = '';
+    showToast('Tag created');
+  }
+
+  async function handleAddSubject() {
+    subjectsError = '';
+    const name = newSubjectName.trim();
+    if (!name) { subjectsError = 'Subject name is required.'; return; }
+    const res = await fetch('/api/subjects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      try { const j = await res.json(); subjectsError = j?.error ? String(j.error) : 'Unable to create subject.'; } catch { subjectsError = 'Unable to create subject.'; }
+      return;
+    }
+    const { id } = await res.json();
+    subjectsList = [...subjectsList, { id, name }];
+    newSubjectName = '';
+    showToast('Subject created');
+  }
 </script>
 
 <Header {session} isAdmin={true} title="Admin Dashboard" navLinks={[
@@ -217,6 +271,42 @@
       </tbody>
     </table>
   </div>
+
+  <div class="card">
+    <h2 style="font-size:1.1rem;margin-bottom:.75rem;">Tags</h2>
+    <form onsubmit={(e) => { e.preventDefault(); handleAddTag(); }} class="inline-form">
+      <input placeholder="New tag name" maxlength="100" bind:value={newTagName} />
+      <button class="save-btn" type="submit">Add tag</button>
+    </form>
+    <p class="error">{tagsError}</p>
+    {#if tagsList.length > 0}
+      <div class="chip-list">
+        {#each tagsList as tag (tag.id)}
+          <span class="group-chip">{tag.name}</span>
+        {/each}
+      </div>
+    {:else}
+      <p class="muted" style="margin-top:.5rem;">No tags yet.</p>
+    {/if}
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:1.1rem;margin-bottom:.75rem;">Subjects</h2>
+    <form onsubmit={(e) => { e.preventDefault(); handleAddSubject(); }} class="inline-form">
+      <input placeholder="New subject name" maxlength="100" bind:value={newSubjectName} />
+      <button class="save-btn" type="submit">Add subject</button>
+    </form>
+    <p class="error">{subjectsError}</p>
+    {#if subjectsList.length > 0}
+      <div class="chip-list">
+        {#each subjectsList as subject (subject.id)}
+          <span class="group-chip">{subject.name}</span>
+        {/each}
+      </div>
+    {:else}
+      <p class="muted" style="margin-top:.5rem;">No subjects yet.</p>
+    {/if}
+  </div>
 </div>
 
 <Toast visible={toastVisible} type={toastType} message={toastMsg} />
@@ -255,6 +345,24 @@
     font: inherit;
   }
   .save-btn:hover { background: #333; }
+  .inline-form {
+    display: flex;
+    gap: .5rem;
+    margin-bottom: .5rem;
+  }
+  .inline-form input {
+    flex: 1;
+    padding: .5rem .65rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+  }
+  .chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin-top: .5rem;
+  }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: .65rem; border-bottom: 1px solid #eee; font-size: .9rem; }
   th { background: #f0f0f0; }

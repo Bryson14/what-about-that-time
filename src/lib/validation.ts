@@ -11,7 +11,7 @@ export const createEventSchema = z.object({
   start_date: z.string().min(1, "start_date is required"),
   end_date: z.string().optional().nullable(),
   notes: z.string().max(5000, "notes must be at most 5000 characters").optional().nullable(),
-  group_name: z.string().min(1, "group is required").max(100, "group must be at most 100 characters"),
+  group_id: z.coerce.number().int().positive("group is required"),
 });
 
 export const updateEventSchema = z.object({
@@ -19,13 +19,25 @@ export const updateEventSchema = z.object({
   start_date: z.string().min(1).optional(),
   end_date: z.string().optional().nullable(),
   notes: z.string().max(5000).optional().nullable(),
-  group_name: z.string().min(1).max(100).optional(),
+  group_id: z.coerce.number().int().positive().optional(),
 });
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(MIN_PAGE_SIZE).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
   search: z.string().optional().default(""),
+});
+
+export const createGroupSchema = z.object({
+  name: z.string().min(1).max(100),
+});
+
+export const createTagSchema = z.object({
+  name: z.string().min(1).max(100),
+});
+
+export const createSubjectSchema = z.object({
+  name: z.string().min(1).max(100),
 });
 
 export const createUserSchema = z.object({
@@ -52,6 +64,7 @@ export const paginatedEventsResponseSchema = z.object({
     notes: z.string().nullable(),
     created_by: z.string(),
     created_at: z.string(),
+    group_id: z.number(),
     group_name: z.string(),
   })),
   total: z.number(),

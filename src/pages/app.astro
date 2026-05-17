@@ -8,7 +8,7 @@ if (!session) {
   return Astro.redirect("/login");
 }
 
-import { getPaginatedEvents } from "../lib/db";
+import { getPaginatedEvents, getAllGroups } from "../lib/db";
 import type { Event } from "../lib/db";
 import AppShell from "../components/AppShell.svelte";
 
@@ -19,6 +19,7 @@ let total = 0;
 let currentPage = 1;
 let pageSize = DEFAULT_PAGE_SIZE;
 let search = "";
+let availableGroups: { id: number; name: string }[] = [];
 
 try {
   const url = new URL(Astro.request.url);
@@ -35,6 +36,13 @@ try {
   total = result.total;
 } catch (err) {
   logger.error("failed to load events", { username: session.username, error: String(err) });
+}
+
+try {
+  const allGroups = await getAllGroups();
+  availableGroups = isAdmin ? allGroups : allGroups.filter(g => session.allowedGroups.includes(g.name));
+} catch (err) {
+  logger.error("failed to load groups", { username: session.username, error: String(err) });
 }
 ---
 
@@ -71,7 +79,7 @@ try {
       initialPage={currentPage}
       pageSize={pageSize}
       initialSearch={search}
-      userGroups={session.allowedGroups}
+      userGroups={availableGroups}
       client:load
     />
   </body>
