@@ -44,6 +44,7 @@
     onDelete = (_id: number, _title: string) => {},
     onSearch = (_value: string) => {},
     onPageChange = (_page: number) => {},
+    onPageSizeChange = (_pageSize: number) => {},
     sorting = [],
     onSortingChange = (_updater: SortingState | ((old: SortingState) => SortingState)) => {},
   }: {
@@ -57,6 +58,7 @@
     onDelete?: (id: number, title: string) => void;
     onSearch?: (value: string) => void;
     onPageChange?: (page: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
     sorting?: SortingState;
     onSortingChange?: (updater: SortingState | ((old: SortingState) => SortingState)) => void;
   } = $props();
@@ -121,6 +123,12 @@
     searchTimer = setTimeout(() => onSearch(value), 300);
   }
 
+  function onPageSizeSelect(e: Event) {
+    const next = Number((e.target as HTMLSelectElement).value);
+    if (!Number.isInteger(next) || next < 1) return;
+    onPageSizeChange(next);
+  }
+
   function toggleMenu(evId: number) {
     openMenuId = openMenuId === evId ? null : evId;
   }
@@ -143,6 +151,15 @@
     class="search-input"
     autocomplete="off"
   />
+  <label class="page-size-label">
+    Rows
+    <select class="page-size-select" value={String(pageSize)} onchange={onPageSizeSelect}>
+      <option value="10">10</option>
+      <option value="25">25</option>
+      <option value="50">50</option>
+      <option value="100">100</option>
+    </select>
+  </label>
   <span class="range-info">{total === 0 ? 'No results' : `${startEntry}–${endEntry} of ${total}`}</span>
 </div>
 
@@ -266,6 +283,24 @@
   .range-info {
     font-size: .85rem;
     color: #777;
+  }
+
+  .page-size-label {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .85rem;
+    color: #555;
+  }
+
+  .page-size-select {
+    padding: .35rem .5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+    font-size: .85rem;
+    background: #fff;
+    color: #1a1a1a;
   }
 
   .table-shell {
