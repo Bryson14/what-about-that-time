@@ -336,14 +336,14 @@
     color: #999;
   }
 
-  /* Mobile: hide table, show cards */
-  @media (max-width: 767px) {
+  /* Desktop: show cards, hide table */
+  @media (min-width: 768px) {
     .table-shell { display: none; }
   }
 
-  /* Desktop: hide cards, show table */
-  @media (min-width: 768px) {
-    .card-list { display: none; }
+  /* Mobile: hide table, show cards */
+  @media (max-width: 767px) {
+    .table-shell { display: none; }
   }
 
   .card-list {

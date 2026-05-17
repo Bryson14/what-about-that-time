@@ -22,6 +22,7 @@ let search = "";
 try {
   const url = new URL(Astro.request.url);
   currentPage = Number(url.searchParams.get("page")) || 1;
+  pageSize = Number(url.searchParams.get("pageSize")) || 10;
   search = url.searchParams.get("search") || "";
   const groups = isAdmin ? undefined : session.allowedGroups;
   const result = await getPaginatedEvents(currentPage, pageSize, search, groups);
