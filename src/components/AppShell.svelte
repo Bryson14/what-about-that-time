@@ -508,7 +508,7 @@
   .field { display: flex; flex-direction: column; gap: .3rem; }
   .field label { font-size: .8rem; font-weight: 600; color: #555; }
   .field input, .field textarea {
-    padding: .5rem; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: .9rem;
+    padding: .5rem; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: 1rem;
   }
   .field textarea { resize: vertical; }
 

@@ -276,7 +276,7 @@
     border: 1px solid #ccc;
     border-radius: 4px;
     font: inherit;
-    font-size: .9rem;
+    font-size: 1rem;
     min-width: 200px;
   }
 
@@ -298,7 +298,7 @@
     border: 1px solid #ccc;
     border-radius: 4px;
     font: inherit;
-    font-size: .85rem;
+    font-size: 1rem;
     background: #fff;
     color: #1a1a1a;
   }
@@ -385,6 +385,8 @@
     display: flex;
     flex-direction: column;
     gap: .6rem;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   .event-card {
@@ -392,6 +394,9 @@
     border-radius: 10px;
     box-shadow: 0 1px 3px rgba(0,0,0,.1);
     padding: .75rem .85rem;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .card-header {
@@ -405,6 +410,9 @@
   .card-title {
     font-size: 1rem;
     line-height: 1.3;
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .card-notes {
@@ -426,7 +434,9 @@
     background: #f3f3f3;
     border-radius: 4px;
     padding: .15rem .35rem;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-width: 100%;
   }
 
   .empty-cards {
