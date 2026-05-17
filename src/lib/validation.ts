@@ -87,3 +87,6 @@ export const sessionUserSchema = z.object({
   role: z.enum(["admin", "user"]),
   allowedGroups: z.array(z.string()),
 });
+
+export const addTagToEventSchema = z.object({ tag_id: z.coerce.number().int().positive() });
+export const addSubjectToEventSchema = z.object({ subject_id: z.coerce.number().int().positive() });

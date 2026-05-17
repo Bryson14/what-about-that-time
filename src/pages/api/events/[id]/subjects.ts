@@ -1,10 +1,8 @@
 import type { APIRoute } from "astro";
 import { getEventById, getEventSubjects, addSubjectToEvent, getSubjectById } from "../../../../lib/db";
-import { guardAuth, checkGroupAccess, jsonError, json } from "../../../../lib/api";
+import { guardAuth, checkGroupAccess, jsonError, json, validationError } from "../../../../lib/api";
 import { logger } from "../../../../lib/logging";
-import { z } from "zod";
-
-const addSubjectSchema = z.object({ subject_id: z.coerce.number().int().positive() });
+import { addSubjectToEventSchema } from "../../../../lib/validation";
 
 export const GET: APIRoute = async (context) => {
   try {
@@ -41,8 +39,8 @@ export const POST: APIRoute = async (context) => {
     if (accessDenied) return accessDenied;
 
     const body = await context.request.json();
-    const parsed = addSubjectSchema.safeParse(body);
-    if (!parsed.success) return jsonError("subject_id is required", 400);
+    const parsed = addSubjectToEventSchema.safeParse(body);
+    if (!parsed.success) return validationError(parsed.error.issues);
 
     const subject = await getSubjectById(parsed.data.subject_id);
     if (!subject) return jsonError("subject not found", 404);

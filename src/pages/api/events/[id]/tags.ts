@@ -1,10 +1,8 @@
 import type { APIRoute } from "astro";
 import { getEventById, getEventTags, addTagToEvent, getTagById } from "../../../../lib/db";
-import { guardAuth, checkGroupAccess, jsonError, json } from "../../../../lib/api";
+import { guardAuth, checkGroupAccess, jsonError, json, validationError } from "../../../../lib/api";
 import { logger } from "../../../../lib/logging";
-import { z } from "zod";
-
-const addTagSchema = z.object({ tag_id: z.coerce.number().int().positive() });
+import { addTagToEventSchema } from "../../../../lib/validation";
 
 export const GET: APIRoute = async (context) => {
   try {
@@ -41,8 +39,8 @@ export const POST: APIRoute = async (context) => {
     if (accessDenied) return accessDenied;
 
     const body = await context.request.json();
-    const parsed = addTagSchema.safeParse(body);
-    if (!parsed.success) return jsonError("tag_id is required", 400);
+    const parsed = addTagToEventSchema.safeParse(body);
+    if (!parsed.success) return validationError(parsed.error.issues);
 
     const tag = await getTagById(parsed.data.tag_id);
     if (!tag) return jsonError("tag not found", 404);
