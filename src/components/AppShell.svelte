@@ -5,6 +5,7 @@
   import { QueryClient, QueryClientProvider, createMutation, createQuery } from '@tanstack/svelte-query';
   import type { SortingState } from '@tanstack/svelte-table';
   import { errorResponseSchema, paginatedEventsResponseSchema } from '../lib/validation';
+  import { logger } from '../lib/logging';
 
   interface EventItem {
     id: number;
@@ -17,8 +18,8 @@
     group_name: string;
   }
 
-  type SaveEventInput = {
-    eventId?: string;
+  type EventMutationInput = {
+    eventId?: number;
     body: Record<string, string>;
   };
 
@@ -47,6 +48,7 @@
   } = $props();
 
   const STORAGE_KEY = 'demo_events';
+  const REFETCH_INTERVAL_MS = 60000;
   const queryClient = new QueryClient();
   let allEvents: EventItem[] = $state([]);
   let events = $state(initialEvents);
@@ -79,9 +81,13 @@
     try {
       const payload = await response.json();
       const parsed = errorResponseSchema.safeParse(payload);
-      if (!parsed.success) return fallback;
+      if (!parsed.success) {
+        logger.warn('failed to parse API error payload', { fallback });
+        return fallback;
+      }
       return typeof parsed.data.error === 'string' ? parsed.data.error : fallback;
     } catch {
+      logger.warn('failed to read API error payload', { fallback });
       return fallback;
     }
   }
@@ -98,14 +104,20 @@
     }
     const payload = await response.json();
     const parsed = paginatedEventsResponseSchema.safeParse(payload);
-    if (!parsed.success) throw new Error('Invalid events response');
+    if (!parsed.success) {
+      logger.error('events response validation failed', {
+        issues: JSON.stringify(parsed.error.issues),
+      });
+      throw new Error('Invalid events response');
+    }
     return parsed.data;
   }
 
   const eventsQuery = createQuery(() => ({
     queryKey: ['events', page, pageSize, search],
     enabled: !demo,
-    refetchInterval: 5000,
+    refetchInterval: REFETCH_INTERVAL_MS,
+    refetchOnWindowFocus: true,
     queryFn: () => requestPaginatedEvents(page, search),
     initialData: {
       events: initialEvents,
@@ -117,7 +129,7 @@
   }));
 
   const saveEventMutation = createMutation(() => ({
-    mutationFn: async ({ eventId, body }: SaveEventInput) => {
+    mutationFn: async ({ eventId, body }: EventMutationInput) => {
       const url = eventId ? `/api/events/${eventId}` : '/api/events';
       const method = eventId ? 'PUT' : 'POST';
       const response = await fetch(url, {
@@ -133,8 +145,7 @@
     onSuccess: async ({ eventId }) => {
       closeDialog();
       formEl?.reset();
-      const hiddenId = formEl?.querySelector('input[name="event_id"]');
-      if (hiddenId) hiddenId.remove();
+      clearEventIdInput();
       if (!eventId) {
         page = 1;
         search = '';
@@ -182,6 +193,7 @@
     events = data.events;
     total = data.total;
     page = data.page;
+    lastQueryError = '';
   });
 
   $effect(() => {
@@ -220,6 +232,11 @@
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(evts)); } catch {}
   }
 
+  function clearEventIdInput() {
+    const hiddenId = formEl?.querySelector('input[name="event_id"]');
+    if (hiddenId) hiddenId.remove();
+  }
+
   function canModify(createdBy: string): boolean {
     return isAdmin || createdBy === session.username;
   }
@@ -231,8 +248,7 @@
     editEndDate = '';
     editGroup = userGroups[0] ?? 'default';
     editNotes = '';
-    const ei = formEl?.querySelector('input[name="event_id"]');
-    if (ei) ei.remove();
+    clearEventIdInput();
     dialogEl?.showModal();
   }
 
@@ -253,7 +269,8 @@
   async function handleSubmit() {
     const data = new FormData(formEl);
     const rawBody = Object.fromEntries(data.entries());
-    const eventId = rawBody.event_id as string | undefined;
+    const eventIdRaw = rawBody.event_id as string | undefined;
+    const eventId = eventIdRaw ? Number(eventIdRaw) : undefined;
 
     const body: Record<string, string> = {};
     for (const [key, value] of Object.entries(rawBody)) {
@@ -265,7 +282,7 @@
     if (demo) {
       const now = new Date().toISOString();
       const eventData: EventItem = {
-        id: eventId ? Number(eventId) : (Math.max(...allEvents.map(e => e.id), 0) + 1),
+        id: eventId ?? (Math.max(...allEvents.map(e => e.id), 0) + 1),
         title: body.title,
         start_date: body.start_date,
         end_date: body.end_date || null,
@@ -275,7 +292,7 @@
         created_at: now,
       };
       if (eventId) {
-        const idx = allEvents.findIndex(ev => ev.id === Number(eventId));
+        const idx = allEvents.findIndex(ev => ev.id === eventId);
         if (idx !== -1) allEvents[idx] = eventData;
         showToast('Event updated');
       } else {
