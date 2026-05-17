@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Header from './Header.svelte';
   import Toast from './Toast.svelte';
 
@@ -37,8 +38,7 @@
   let tagsError = $state('');
   let subjectsError = $state('');
 
-  $effect(() => {
-    if (typeof window === 'undefined') return;
+  onMount(() => {
     fetch('/api/tags').then(r => r.ok ? r.json() : []).then((d: Tag[]) => { tagsList = d; }).catch(() => {});
     fetch('/api/subjects').then(r => r.ok ? r.json() : []).then((d: Subject[]) => { subjectsList = d; }).catch(() => {});
   });

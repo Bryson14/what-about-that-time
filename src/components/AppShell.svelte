@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Header from './Header.svelte';
   import EventsTable from './EventsTable.svelte';
   import Toast from './Toast.svelte';
@@ -109,8 +110,8 @@
   let dialogTitle = $derived(editId !== null ? 'Edit Event' : 'Add Event');
   let submitLabel = $derived(editId !== null ? 'Save' : 'Add');
 
-  $effect(() => {
-    if (demo || typeof window === 'undefined') return;
+  onMount(() => {
+    if (demo) return;
     fetch('/api/tags').then(r => r.ok ? r.json() : []).then((data: Tag[]) => { availableTags = data; }).catch(() => {});
     fetch('/api/subjects').then(r => r.ok ? r.json() : []).then((data: Subject[]) => { availableSubjects = data; }).catch(() => {});
   });

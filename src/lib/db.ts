@@ -174,7 +174,8 @@ export async function createGroup(name: string): Promise<number> {
     .run();
   if (result.meta.last_row_id) return result.meta.last_row_id as number;
   const existing = await db().prepare("SELECT id FROM groups WHERE name = ?").bind(name).first<{ id: number }>();
-  return existing!.id;
+  if (!existing) throw new Error(`group '${name}' not found after upsert`);
+  return existing.id;
 }
 
 // ── Tags ──────────────────────────────────────────────────────────────────────
@@ -195,7 +196,8 @@ export async function createTag(name: string): Promise<number> {
     .run();
   if (result.meta.last_row_id) return result.meta.last_row_id as number;
   const existing = await db().prepare("SELECT id FROM tags WHERE name = ?").bind(name).first<{ id: number }>();
-  return existing!.id;
+  if (!existing) throw new Error(`tag '${name}' not found after upsert`);
+  return existing.id;
 }
 
 export async function getEventTags(eventId: number): Promise<Tag[]> {
@@ -239,7 +241,8 @@ export async function createSubject(name: string): Promise<number> {
     .run();
   if (result.meta.last_row_id) return result.meta.last_row_id as number;
   const existing = await db().prepare("SELECT id FROM subjects WHERE name = ?").bind(name).first<{ id: number }>();
-  return existing!.id;
+  if (!existing) throw new Error(`subject '${name}' not found after upsert`);
+  return existing.id;
 }
 
 export async function getEventSubjects(eventId: number): Promise<Subject[]> {
