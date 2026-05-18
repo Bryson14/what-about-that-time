@@ -134,6 +134,34 @@
     showToast('Groups updated');
     setTimeout(() => location.reload(), 500);
   }
+
+  async function resetPassword(user: string) {
+    formError = '';
+    const nextPassword = window.prompt(`Enter a new password for @${user}`);
+    if (nextPassword === null) return;
+    if (nextPassword.length < 8 || nextPassword.length > 128) {
+      formError = 'Password must be between 8 and 128 characters.';
+      return;
+    }
+
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(user)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password: nextPassword }),
+    });
+
+    if (!res.ok) {
+      try {
+        const json = await res.json();
+        formError = json?.error ? String(json.error) : 'Unable to reset password.';
+      } catch {
+        formError = 'Unable to reset password.';
+      }
+      return;
+    }
+
+    showToast(`Password reset for @${user}`);
+  }
 </script>
 
 <Header {session} isAdmin={true} title="Admin Dashboard" navLinks={[
@@ -173,8 +201,8 @@
   </div>
 
   <div class="card">
-    <h2 style="font-size:1.1rem;margin-bottom:.25rem;">Contributors</h2>
-    <p class="muted" style="margin-bottom:.75rem;">Admin users cannot be removed.</p>
+    <h2 style="font-size:1.1rem;margin-bottom:.25rem;">Users</h2>
+    <p class="muted" style="margin-bottom:.75rem;">All accounts are listed here. Admin users cannot be removed.</p>
     <table>
       <thead>
         <tr>
@@ -207,8 +235,10 @@
             <td>
               {#if user.role === 'admin'}
                 <span class="muted">Owner</span>
+                <button class="reset-btn" type="button" onclick={() => resetPassword(user.username)}>Reset password</button>
               {:else}
                 <button class="edit-btn" type="button" onclick={() => startEdit(user)}>Edit</button>
+                <button class="reset-btn" type="button" onclick={() => resetPassword(user.username)}>Reset password</button>
                 <button class="delete-btn" type="button" onclick={() => handleDelete(user.username)}>Remove</button>
               {/if}
             </td>
@@ -266,6 +296,16 @@
     padding: .35rem .55rem;
     cursor: pointer;
   }
+  .reset-btn {
+    border: 1px solid #d0d0d0;
+    background: #fff;
+    color: #333;
+    border-radius: 6px;
+    padding: .35rem .55rem;
+    cursor: pointer;
+    margin-right: .25rem;
+  }
+  .reset-btn:hover { background: #f0f0f0; }
   .delete-btn:hover { background: #fff1f1; }
   .edit-btn {
     border: 1px solid #d0d0d0;

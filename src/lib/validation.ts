@@ -68,9 +68,21 @@ export const storedUserSchema = z.object({
   salt: z.string(),
 });
 
+export const legacyStoredUserSchema = z.object({
+  fullName: z.string().optional(),
+  role: z.enum(["admin", "user"]).optional(),
+  allowedGroups: z.array(z.string()).optional(),
+  passwordHash: z.string().optional(),
+  salt: z.string().optional(),
+});
+
 export const sessionUserSchema = z.object({
   username: z.string(),
   fullName: z.string(),
   role: z.enum(["admin", "user"]),
   allowedGroups: z.array(z.string()),
+});
+
+export const resetUserPasswordSchema = z.object({
+  password: z.string().min(8).max(128),
 });
