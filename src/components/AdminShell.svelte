@@ -26,6 +26,8 @@
 
   let editingUser = $state<string | null>(null);
   let editGroups = $state('');
+  let resetUser = $state<string | null>(null);
+  let resetPassword = $state('');
 
   function showToast(msg: string, type: 'success' | 'error' = 'success') {
     toastMsg = msg;
@@ -93,19 +95,25 @@
     setTimeout(() => location.reload(), 500);
   }
 
-  async function handleResetPassword(user: string) {
+  function openResetPassword(user: string) {
     formError = '';
-    const password = window.prompt(`Set a new password for @${user} (minimum 8 characters):`);
-    if (password === null) return;
-    if (password.length < 8) {
-      formError = 'Password must be at least 8 characters.';
-      return;
-    }
+    resetUser = user;
+    resetPassword = '';
+  }
 
-    const res = await fetch(`/api/admin/users/${encodeURIComponent(user)}`, {
+  function closeResetPassword() {
+    resetUser = null;
+    resetPassword = '';
+  }
+
+  async function submitResetPassword() {
+    if (!resetUser) return;
+    formError = '';
+    const targetUser = resetUser;
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(targetUser)}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password: resetPassword }),
     });
 
     if (!res.ok) {
@@ -118,7 +126,8 @@
       return;
     }
 
-    showToast(`Password reset for @${user}`);
+    closeResetPassword();
+    showToast(`Password reset for @${targetUser}`);
   }
 
   function startEdit(user: UserSummary) {
@@ -235,10 +244,10 @@
             <td>
               {#if user.role === 'admin'}
                 <span class="muted">Owner</span>
-                <button class="reset-btn" type="button" onclick={() => handleResetPassword(user.username)}>Reset password</button>
+                <button class="reset-btn" type="button" onclick={() => openResetPassword(user.username)}>Reset password</button>
               {:else}
                 <button class="edit-btn" type="button" onclick={() => startEdit(user)}>Edit</button>
-                <button class="reset-btn" type="button" onclick={() => handleResetPassword(user.username)}>Reset password</button>
+                <button class="reset-btn" type="button" onclick={() => openResetPassword(user.username)}>Reset password</button>
                 <button class="delete-btn" type="button" onclick={() => handleDelete(user.username)}>Remove</button>
               {/if}
             </td>
@@ -248,6 +257,30 @@
     </table>
   </div>
 </div>
+
+{#if resetUser}
+  <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="reset-password-title">
+    <div class="modal-card">
+      <h3 id="reset-password-title">Reset password for @{resetUser}</h3>
+      <form onsubmit={(e) => { e.preventDefault(); submitResetPassword(); }}>
+        <label for="reset-password-input">New password</label>
+        <input
+          id="reset-password-input"
+          name="password"
+          type="password"
+          minlength="8"
+          maxlength="128"
+          required
+          bind:value={resetPassword}
+        />
+        <div class="modal-actions">
+          <button type="submit" class="save-btn">Reset password</button>
+          <button type="button" class="group-cancel-btn" onclick={closeResetPassword}>Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
 
 <Toast visible={toastVisible} type={toastType} message={toastMsg} />
 
@@ -363,4 +396,32 @@
     font: inherit;
     font-size: .8rem;
   }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .35);
+    display: grid;
+    place-items: center;
+    z-index: 1000;
+    padding: 1rem;
+  }
+  .modal-card {
+    width: min(420px, 100%);
+    background: #fff;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .2);
+    display: grid;
+    gap: .75rem;
+  }
+  .modal-card label { font-size: .85rem; font-weight: 600; color: #555; }
+  .modal-card input {
+    width: 100%;
+    padding: .55rem .65rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+    margin-top: .25rem;
+  }
+  .modal-actions { display: flex; gap: .5rem; align-items: center; }
 </style>

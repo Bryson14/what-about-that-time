@@ -238,6 +238,20 @@ export async function listUsers(): Promise<UserSummary[]> {
     .sort((a: UserSummary, b: UserSummary) => a.username.localeCompare(b.username));
 }
 
+async function listSessionKeys(): Promise<string[]> {
+  const keyNames: string[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const page = await usersKv().list({ prefix: SESSION_PREFIX, cursor });
+    keyNames.push(...page.keys.map((key: { name: string }) => key.name));
+    if (page.list_complete || !page.cursor) break;
+    cursor = page.cursor;
+  } while (true);
+
+  return keyNames;
+}
+
 export async function createUser(
   username: string,
   password: string,
@@ -328,14 +342,14 @@ export async function resetUserPassword(
   };
   await usersKv().put(userKey(normalized), JSON.stringify(updated));
 
-  const sessions = await usersKv().list({ prefix: SESSION_PREFIX });
+  const sessionKeys = await listSessionKeys();
   await Promise.all(
-    sessions.keys.map(async (key: { name: string }) => {
-      const rawSession = await usersKv().get(key.name, "json");
+    sessionKeys.map(async (sessionKeyName: string) => {
+      const rawSession = await usersKv().get(sessionKeyName, "json");
       if (!rawSession) return;
       const parsed = sessionUserSchema.safeParse(rawSession);
       if (parsed.success && parsed.data.username === normalized) {
-        await usersKv().delete(key.name);
+        await usersKv().delete(sessionKeyName);
       }
     })
   );
@@ -353,14 +367,14 @@ export async function deleteUser(username: string): Promise<{ ok: true } | { ok:
   const key = userKey(normalized);
   await usersKv().delete(key);
 
-  const sessions = await usersKv().list({ prefix: SESSION_PREFIX });
+  const sessionKeys = await listSessionKeys();
   await Promise.all(
-    sessions.keys.map(async (key: { name: string }) => {
-      const raw = await usersKv().get(key.name, "json");
+    sessionKeys.map(async (sessionKeyName: string) => {
+      const raw = await usersKv().get(sessionKeyName, "json");
       if (!raw) return;
       const parsed = sessionUserSchema.safeParse(raw);
       if (parsed.success && parsed.data.username === normalized) {
-        await usersKv().delete(key.name);
+        await usersKv().delete(sessionKeyName);
       }
     })
   );
