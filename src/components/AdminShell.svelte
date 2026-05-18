@@ -106,6 +106,11 @@
     resetPassword = '';
   }
 
+  function onResetPasswordSubmit(e: SubmitEvent) {
+    e.preventDefault();
+    void submitResetPassword();
+  }
+
   async function submitResetPassword() {
     if (!resetUser) return;
     formError = '';
@@ -262,7 +267,7 @@
   <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="reset-password-title">
     <div class="modal-card">
       <h3 id="reset-password-title">Reset password for @{resetUser}</h3>
-      <form onsubmit={(e) => { e.preventDefault(); submitResetPassword(); }}>
+      <form onsubmit={onResetPasswordSubmit}>
         <label for="reset-password-input">New password</label>
         <input
           id="reset-password-input"

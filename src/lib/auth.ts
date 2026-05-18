@@ -311,13 +311,16 @@ export async function updateUserGroups(
   allowedGroups: string[]
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const normalized = normalizeUsername(username);
-  const raw = await usersKv().get(userKey(normalized), "json");
-  const user = normalizeUserSummary(raw, normalized);
+  const stored = await getStoredUser(normalized);
+  if (!stored) {
+    const raw = await usersKv().get(userKey(normalized), "json");
+    if (!normalizeUserSummary(raw, normalized)) return { ok: false, error: "user not found" };
+    return { ok: false, error: "user record is invalid or corrupted" };
+  }
+
+  const user = normalizeUserSummary(stored, normalized);
   if (!user) return { ok: false, error: "user not found" };
   if (!allowedGroups || allowedGroups.length === 0) return { ok: false, error: "at least one allowed group is required" };
-
-  const stored = await getStoredUser(normalized);
-  if (!stored) return { ok: false, error: "user record is invalid or corrupted" };
 
   const updated: StoredUser = { ...stored, fullName: user.fullName, role: user.role, allowedGroups };
   await usersKv().put(userKey(normalized), JSON.stringify(updated));
