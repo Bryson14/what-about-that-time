@@ -516,7 +516,6 @@
       {search}
       canModify={canModify}
       onEdit={openEditDialog}
-      onDelete={handleDelete}
       onSearch={onSearch}
       onPageChange={onPageChange}
       onPageSizeChange={onPageSizeChange}
@@ -586,6 +585,9 @@
         </div>
       </div>
       <div class="dialog-actions">
+        {#if editId !== null}
+          <button class="delete-btn" type="button" onclick={() => handleDelete(editId, editTitle)}>Delete event</button>
+        {/if}
         <button class="cancel-btn" type="button" onclick={closeDialog}>Cancel</button>
         <button class="save-btn" type="submit">{submitLabel}</button>
       </div>
@@ -686,10 +688,21 @@
 
   .dialog-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     gap: .45rem;
     margin-top: .9rem;
   }
+
+  .delete-btn {
+    border: 1px solid #f1d1d1;
+    background: #fff;
+    color: #b10000;
+    border-radius: 4px;
+    padding: .6rem .9rem;
+    font: inherit;
+    cursor: pointer;
+  }
+  .delete-btn:hover { background: #fff1f1; }
 
   .cancel-btn {
     border: 1px solid #d0d0d0;

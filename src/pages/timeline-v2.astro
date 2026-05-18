@@ -1,0 +1,936 @@
+---
+import { getSessionFromRequest, isAdminUser } from "../lib/auth";
+import { logger } from "../lib/logging";
+
+const session = await getSessionFromRequest(Astro.request);
+if (!session) {
+  return Astro.redirect("/login");
+}
+
+const isAdmin = isAdminUser(session);
+
+import { getAllEvents } from "../lib/db";
+import Header from "../components/Header.astro";
+import type { Event } from "../lib/db";
+
+let events: Event[] = [];
+try {
+  events = await getAllEvents(isAdmin ? undefined : session.allowedGroups);
+} catch (err) {
+  logger.error("failed to load events for timeline-v2", {
+    username: session.username,
+    error: String(err),
+  });
+}
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no"
+    />
+    <meta name="generator" content={Astro.generator} />
+    <meta
+      name="description"
+      content="Drive through your personal timeline in an immersive 3D experience."
+    />
+    <link
+      rel="canonical"
+      href={new URL(Astro.url.pathname, Astro.site).href}
+    />
+    <title>Timeline 3D – What About That Time</title>
+
+    <!-- Three.js via CDN importmap -->
+    <script type="importmap" is:inline>
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js"
+        }
+      }
+    </script>
+
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: system-ui, sans-serif;
+        background: #080c14;
+        color: #e0e0e0;
+        overflow: hidden;
+        height: 100dvh;
+        width: 100vw;
+      }
+
+      #three-canvas {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+
+      /* ── Event info panel ─────────────────────────────── */
+      .event-info {
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        translate: -50% 0;
+        width: min(420px, 96vw);
+        background: rgba(10, 14, 25, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-bottom: none;
+        border-radius: 16px 16px 0 0;
+        padding: 1.1rem 1.2rem 1.4rem;
+        backdrop-filter: blur(12px);
+        z-index: 20;
+        transform: translateY(0);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
+      }
+      .event-info.hidden {
+        transform: translateY(110%);
+      }
+
+      .event-info-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .event-info-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #eee;
+        line-height: 1.3;
+      }
+
+      .event-info-close {
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 1.1rem;
+        cursor: pointer;
+        padding: 0.1rem 0.25rem;
+        border-radius: 4px;
+        flex-shrink: 0;
+        transition: color 0.15s;
+      }
+      .event-info-close:hover {
+        color: #ccc;
+      }
+
+      .event-info-group {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.3rem;
+      }
+
+      .event-info-date {
+        font-size: 0.8rem;
+        color: #888;
+        margin-bottom: 0.5rem;
+      }
+
+      .event-info-notes {
+        font-size: 0.83rem;
+        color: #aaa;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 5rem;
+        overflow-y: auto;
+      }
+      .event-info-notes:empty {
+        display: none;
+      }
+
+      /* ── Mobile D-pad ─────────────────────────────────── */
+      .dpad {
+        position: fixed;
+        bottom: 1.5rem;
+        left: 1.5rem;
+        z-index: 30;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2rem;
+        pointer-events: none;
+      }
+
+      @media (pointer: coarse) {
+        .dpad {
+          display: flex;
+        }
+      }
+
+      .dpad-row {
+        display: flex;
+        gap: 0.2rem;
+      }
+
+      .dpad-btn {
+        width: 3.2rem;
+        height: 3.2rem;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        color: #ccc;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        pointer-events: all;
+        transition: background 0.1s;
+        backdrop-filter: blur(4px);
+        touch-action: none;
+      }
+      .dpad-btn:active,
+      .dpad-btn.pressed {
+        background: rgba(255, 255, 255, 0.25);
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+
+      .dpad-spacer {
+        width: 3.2rem;
+        height: 3.2rem;
+      }
+
+      /* ── HUD overlay (keyboard hint) ──────────────────── */
+      .hud-hint {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        translate: -50% -50%;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.3);
+        font-size: 0.82rem;
+        pointer-events: none;
+        z-index: 10;
+        transition: opacity 0.6s;
+      }
+      .hud-hint.gone {
+        opacity: 0;
+      }
+
+      /* ── Speed indicator ─────────────────────────────── */
+      .speed-bar {
+        position: fixed;
+        top: 50%;
+        right: 1.2rem;
+        translate: 0 -50%;
+        width: 6px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 3px;
+        z-index: 20;
+        overflow: hidden;
+      }
+      .speed-fill {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        background: linear-gradient(to top, #4ecdc4, #a29bfe);
+        border-radius: 3px;
+        transition: height 0.1s;
+      }
+
+      /* ── Progress bar along bottom ───────────────────── */
+      .progress-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.06);
+        z-index: 15;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(to right, #6c5ce7, #4ecdc4);
+        width: 0%;
+        transition: width 0.3s;
+      }
+
+      .hidden-hint {
+        display: none;
+      }
+
+      /* ── Event count badge ────────────────────────────── */
+      .event-count {
+        position: fixed;
+        top: calc(var(--header-h, 50px) + 0.5rem);
+        right: 0.75rem;
+        font-size: 0.7rem;
+        color: rgba(255, 255, 255, 0.35);
+        z-index: 10;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <Header
+      session={{ fullName: session.fullName, username: session.username }}
+      isAdmin={isAdmin}
+      title="Timeline 3D"
+      navLinks={[
+        { href: "/timeline", label: "Classic view" },
+        { href: "/app", label: "Back to list" },
+      ]}
+      variant="dark"
+    />
+
+    <canvas id="three-canvas"></canvas>
+
+    <!-- Event info slide-up panel -->
+    <div class="event-info hidden" id="event-info">
+      <div class="event-info-header">
+        <div class="event-info-title" id="info-title"></div>
+        <button class="event-info-close" id="info-close" aria-label="Close">
+          ✕
+        </button>
+      </div>
+      <div class="event-info-group" id="info-group"></div>
+      <div class="event-info-date" id="info-date"></div>
+      <div class="event-info-notes" id="info-notes"></div>
+    </div>
+
+    <!-- Mobile D-pad controls -->
+    <div class="dpad" id="dpad" aria-label="Drive controls">
+      <div class="dpad-row">
+        <div class="dpad-spacer"></div>
+        <button class="dpad-btn" id="btn-up" aria-label="Forward">▲</button>
+        <div class="dpad-spacer"></div>
+      </div>
+      <div class="dpad-row">
+        <button class="dpad-btn" id="btn-left" aria-label="Turn left">◀</button>
+        <button class="dpad-btn" id="btn-down" aria-label="Reverse">▼</button>
+        <button class="dpad-btn" id="btn-right" aria-label="Turn right"
+          >▶</button
+        >
+      </div>
+    </div>
+
+    <!-- Speed indicator -->
+    <div class="speed-bar">
+      <div class="speed-fill" id="speed-fill"></div>
+    </div>
+
+    <!-- Timeline progress bar -->
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <!-- Hint overlay -->
+    <div class="hud-hint" id="hud-hint">
+      <span id="hint-desktop">WASD / arrows to drive</span>
+      <span id="hint-mobile" class="hidden-hint">use controls to drive</span>
+      <br />drive through pillars to explore events
+    </div>
+
+    <!-- Inject events data -->
+    <script is:inline define:vars={{ eventsData: events }}>
+      window.__TLV2_EVENTS__ = eventsData;
+    </script>
+
+    <!-- 3D Scene -->
+    <script type="module" is:inline>
+      import * as THREE from "three";
+
+      /* ── Data ───────────────────────────────────────────── */
+      const eventsData = window.__TLV2_EVENTS__ ?? [];
+      delete window.__TLV2_EVENTS__;
+
+      /* ── Color palette ───────────────────────────────────── */
+      const PALETTE = [
+        "#ff6b6b",
+        "#4ecdc4",
+        "#feca57",
+        "#a29bfe",
+        "#fd79a8",
+        "#00b894",
+        "#e17055",
+        "#0984e3",
+        "#6c5ce7",
+        "#00cec9",
+        "#ffd166",
+        "#2ec4b6",
+        "#ef476f",
+        "#118ab2",
+        "#06d6a0",
+      ];
+      const groupColorMap = new Map();
+      let colorIdx = 0;
+      function groupColor(name) {
+        if (!groupColorMap.has(name)) {
+          groupColorMap.set(name, PALETTE[colorIdx++ % PALETTE.length]);
+        }
+        return groupColorMap.get(name);
+      }
+
+      /* ── Renderer ────────────────────────────────────────── */
+      const canvas = document.getElementById("three-canvas");
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: false,
+      });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      /* ── Scene ───────────────────────────────────────────── */
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x080c14);
+      scene.fog = new THREE.FogExp2(0x080c14, 0.008);
+
+      /* ── Camera ──────────────────────────────────────────── */
+      const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 800);
+      camera.position.set(0, 8, 20);
+
+      /* ── Lights ──────────────────────────────────────────── */
+      scene.add(new THREE.AmbientLight(0x223366, 1.2));
+      const moonLight = new THREE.DirectionalLight(0x334477, 0.6);
+      moonLight.position.set(20, 80, 40);
+      moonLight.castShadow = true;
+      moonLight.shadow.mapSize.set(1024, 1024);
+      scene.add(moonLight);
+
+      /* ── Stars ───────────────────────────────────────────── */
+      {
+        const count = 2500;
+        const pos = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          pos[i * 3] = (Math.random() - 0.5) * 900;
+          pos[i * 3 + 1] = Math.random() * 220 + 15;
+          pos[i * 3 + 2] = (Math.random() - 0.5) * 2000 - 100;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        const mat = new THREE.PointsMaterial({
+          color: 0xffffff,
+          size: 0.4,
+          sizeAttenuation: true,
+        });
+        scene.add(new THREE.Points(geo, mat));
+      }
+
+      /* ── Ground ──────────────────────────────────────────── */
+      {
+        const geo = new THREE.PlaneGeometry(300, 3000);
+        const mat = new THREE.MeshLambertMaterial({ color: 0x050810 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(0, -0.01, -600);
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+      }
+
+      /* ── Road ────────────────────────────────────────────── */
+      const ROAD_W = 14;
+      {
+        const geo = new THREE.PlaneGeometry(ROAD_W, 3000);
+        const mat = new THREE.MeshLambertMaterial({ color: 0x111520 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(0, 0.01, -600);
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+      }
+
+      /* Road lane markings */
+      {
+        const dashMat = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.18,
+        });
+        for (let i = 0; i < 160; i++) {
+          const geo = new THREE.PlaneGeometry(0.25, 5);
+          const mesh = new THREE.Mesh(geo, dashMat);
+          mesh.rotation.x = -Math.PI / 2;
+          mesh.position.set(0, 0.02, -i * 18 - 5);
+          scene.add(mesh);
+        }
+        /* Road edges */
+        const edgeMat = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.12,
+        });
+        for (const sx of [-ROAD_W / 2 + 0.4, ROAD_W / 2 - 0.4]) {
+          const geo = new THREE.PlaneGeometry(0.18, 3000);
+          const mesh = new THREE.Mesh(geo, edgeMat);
+          mesh.rotation.x = -Math.PI / 2;
+          mesh.position.set(sx, 0.02, -600);
+          scene.add(mesh);
+        }
+      }
+
+      /* ── Parse & place events ────────────────────────────── */
+      const SPACING = 90;
+      const parsedEvents = eventsData.map((ev, i) => {
+        const color = groupColor(ev.group_name);
+        /* Alternate sides: odd right, even left */
+        const side = i % 2 === 0 ? -1 : 1;
+        return {
+          ...ev,
+          color,
+          x: side * (ROAD_W / 2 + 5),
+          z: -(i * SPACING + 60),
+        };
+      });
+
+      const totalDepth = parsedEvents.length > 0
+        ? Math.abs(parsedEvents[parsedEvents.length - 1].z) + 60
+        : 100;
+
+      /* ── Build pillar helpers ─────────────────────────────── */
+      function makeLabel(ev) {
+        const W = 512,
+          H = 128;
+        const lc = document.createElement("canvas");
+        lc.width = W;
+        lc.height = H;
+        const lx = lc.getContext("2d");
+
+        /* Background pill */
+        lx.fillStyle = "rgba(5,8,20,0.82)";
+        lx.beginPath();
+        lx.roundRect(4, 4, W - 8, H - 8, 14);
+        lx.fill();
+
+        /* Color accent line */
+        lx.fillStyle = ev.color;
+        lx.beginPath();
+        lx.roundRect(4, 4, 6, H - 8, [14, 0, 0, 14]);
+        lx.fill();
+
+        /* Title */
+        lx.fillStyle = "#eeeeee";
+        lx.font = "bold 26px system-ui";
+        lx.textAlign = "left";
+        lx.textBaseline = "middle";
+        const title =
+          ev.title.length > 32 ? ev.title.substring(0, 30) + "…" : ev.title;
+        lx.fillText(title, 22, 46);
+
+        /* Date */
+        lx.fillStyle = "rgba(180,180,200,0.75)";
+        lx.font = "20px system-ui";
+        lx.fillText(ev.start_date.substring(0, 10), 22, 88);
+
+        /* Group tag */
+        lx.fillStyle = ev.color;
+        lx.font = "bold 16px system-ui";
+        lx.textAlign = "right";
+        lx.fillText(ev.group_name, W - 16, 88);
+
+        return new THREE.CanvasTexture(lc);
+      }
+
+      const pillarObjects = [];
+
+      for (const ev of parsedEvents) {
+        const hexColor = parseInt(ev.color.replace("#", ""), 16);
+        const threeColor = new THREE.Color(hexColor);
+
+        /* Core beam */
+        const beamGeo = new THREE.CylinderGeometry(0.35, 0.35, 80, 12);
+        const beamMat = new THREE.MeshBasicMaterial({
+          color: threeColor,
+          transparent: true,
+          opacity: 0.55,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const beam = new THREE.Mesh(beamGeo, beamMat);
+        beam.position.set(ev.x, 40, ev.z);
+        scene.add(beam);
+
+        /* Soft glow halo */
+        const haloGeo = new THREE.CylinderGeometry(2.2, 2.2, 80, 12);
+        const haloMat = new THREE.MeshBasicMaterial({
+          color: threeColor,
+          transparent: true,
+          opacity: 0.07,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.BackSide,
+        });
+        const halo = new THREE.Mesh(haloGeo, haloMat);
+        halo.position.copy(beam.position);
+        scene.add(halo);
+
+        /* Ground ring */
+        const ringGeo = new THREE.RingGeometry(1.2, 3.5, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: threeColor,
+          transparent: true,
+          opacity: 0.28,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(ev.x, 0.03, ev.z);
+        scene.add(ring);
+
+        /* Point light */
+        const ptLight = new THREE.PointLight(hexColor, 2.5, 55);
+        ptLight.position.set(ev.x, 1.5, ev.z);
+        scene.add(ptLight);
+
+        /* Floating label sprite */
+        const labelTex = makeLabel(ev);
+        const spriteMat = new THREE.SpriteMaterial({
+          map: labelTex,
+          transparent: true,
+          depthWrite: false,
+          sizeAttenuation: true,
+        });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.scale.set(18, 4.5, 1);
+        /* Label slightly toward road so it faces driver */
+        const labelX = ev.x > 0 ? ev.x - 7 : ev.x + 7;
+        sprite.position.set(labelX, 9, ev.z);
+        scene.add(sprite);
+
+        pillarObjects.push({ beam, halo, ring, ptLight, sprite, ev });
+      }
+
+      /* ── Truck ───────────────────────────────────────────── */
+      const truck = new THREE.Group();
+
+      /* Body */
+      const bodyMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(4.6, 2.2, 8.5),
+        new THREE.MeshLambertMaterial({ color: 0xcc2222 }),
+      );
+      bodyMesh.position.set(0, 1.8, 0);
+      bodyMesh.castShadow = true;
+      truck.add(bodyMesh);
+
+      /* Cab */
+      const cabMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(4.2, 2.1, 3.8),
+        new THREE.MeshLambertMaterial({ color: 0xbb1e1e }),
+      );
+      cabMesh.position.set(0, 3.15, -3.0);
+      cabMesh.castShadow = true;
+      truck.add(cabMesh);
+
+      /* Windshield */
+      const wsMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.4, 1.6),
+        new THREE.MeshLambertMaterial({
+          color: 0x88aadd,
+          transparent: true,
+          opacity: 0.65,
+        }),
+      );
+      wsMesh.position.set(0, 3.2, -4.9);
+      wsMesh.rotation.x = 0.15;
+      truck.add(wsMesh);
+
+      /* Wheels */
+      const wheelGeo = new THREE.CylinderGeometry(0.88, 0.88, 0.9, 16);
+      const wheelMat = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+      [
+        [-2.0, 0.88, -3.2],
+        [2.0, 0.88, -3.2],
+        [-2.0, 0.88, 2.8],
+        [2.0, 0.88, 2.8],
+      ].forEach(([x, y, z]) => {
+        const w = new THREE.Mesh(wheelGeo, wheelMat);
+        w.rotation.z = Math.PI / 2;
+        w.position.set(x, y, z);
+        w.castShadow = true;
+        truck.add(w);
+      });
+
+      /* Headlights (meshes + spot lights) */
+      const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffcc });
+      const hlGeo = new THREE.SphereGeometry(0.22, 8, 8);
+      [-1.4, 1.4].forEach((hx) => {
+        const hl = new THREE.Mesh(hlGeo, hlMat);
+        hl.position.set(hx, 2.2, -4.35);
+        truck.add(hl);
+
+        const spot = new THREE.SpotLight(0xffffe8, 6, 90, Math.PI / 10, 0.5);
+        spot.position.copy(hl.position);
+        spot.target.position.set(hx * 0.3, -1, -55);
+        truck.add(spot);
+        truck.add(spot.target);
+      });
+
+      /* Tail lights */
+      const tlMat = new THREE.MeshBasicMaterial({ color: 0xff2222 });
+      const tlGeo = new THREE.SphereGeometry(0.18, 8, 8);
+      [-1.6, 1.6].forEach((tx) => {
+        const tl = new THREE.Mesh(tlGeo, tlMat);
+        tl.position.set(tx, 2.2, 4.25);
+        truck.add(tl);
+      });
+
+      truck.position.set(0, 0, 10);
+      scene.add(truck);
+
+      /* ── Controls ────────────────────────────────────────── */
+      const keys = { fwd: false, rev: false, left: false, right: false };
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowUp" || e.key === "w" || e.key === "W")
+          keys.fwd = true;
+        if (e.key === "ArrowDown" || e.key === "s" || e.key === "S")
+          keys.rev = true;
+        if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A")
+          keys.left = true;
+        if (e.key === "ArrowRight" || e.key === "d" || e.key === "D")
+          keys.right = true;
+      });
+      window.addEventListener("keyup", (e) => {
+        if (e.key === "ArrowUp" || e.key === "w" || e.key === "W")
+          keys.fwd = false;
+        if (e.key === "ArrowDown" || e.key === "s" || e.key === "S")
+          keys.rev = false;
+        if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A")
+          keys.left = false;
+        if (e.key === "ArrowRight" || e.key === "d" || e.key === "D")
+          keys.right = false;
+      });
+
+      /* D-pad touch buttons */
+      const btnMap = [
+        ["btn-up", "fwd"],
+        ["btn-down", "rev"],
+        ["btn-left", "left"],
+        ["btn-right", "right"],
+      ];
+      for (const [id, key] of btnMap) {
+        const btn = document.getElementById(id);
+        if (!btn) continue;
+        const on = () => {
+          keys[key] = true;
+          btn.classList.add("pressed");
+        };
+        const off = () => {
+          keys[key] = false;
+          btn.classList.remove("pressed");
+        };
+        btn.addEventListener("pointerdown", on);
+        btn.addEventListener("pointerup", off);
+        btn.addEventListener("pointercancel", off);
+        btn.addEventListener("pointerleave", off);
+      }
+
+      /* ── Truck physics state ────────────────────────────── */
+      let speed = 0;
+      let heading = 0; /* radians */
+      const MAX_SPEED = 0.45;
+      const MAX_REV = 0.18;
+      const ACCEL = 0.012;
+      const DECEL = 0.008;
+      const FRICTION = 0.006;
+      const STEER = 0.028;
+
+      /* ── HUD refs ────────────────────────────────────────── */
+      const speedFill = document.getElementById("speed-fill");
+      const progressFill = document.getElementById("progress-fill");
+      const hintEl = document.getElementById("hud-hint");
+      let hintTimer = setTimeout(() => hintEl?.classList.add("gone"), 5000);
+
+      /* ── Event info panel ────────────────────────────────── */
+      const infoPanel = document.getElementById("event-info");
+      const infoTitle = document.getElementById("info-title");
+      const infoGroup = document.getElementById("info-group");
+      const infoDate = document.getElementById("info-date");
+      const infoNotes = document.getElementById("info-notes");
+      let lastShownId = null;
+      let infoPinned = false;
+
+      document.getElementById("info-close")?.addEventListener("click", () => {
+        infoPinned = false;
+        infoPanel?.classList.add("hidden");
+        lastShownId = null;
+      });
+
+      function showEventInfo(ev) {
+        if (infoPinned && lastShownId === ev.id) return;
+        if (!infoPinned && lastShownId === ev.id) return;
+        lastShownId = ev.id;
+        infoTitle.textContent = ev.title;
+        infoGroup.textContent = ev.group_name;
+        infoGroup.style.color = ev.color;
+        infoDate.textContent = ev.end_date
+          ? `${ev.start_date} → ${ev.end_date}`
+          : ev.start_date;
+        infoNotes.textContent = ev.notes ?? "";
+        infoPanel?.classList.remove("hidden");
+      }
+
+      function hideEventInfo() {
+        if (infoPinned) return;
+        if (lastShownId === null) return;
+        lastShownId = null;
+        infoPanel?.classList.add("hidden");
+      }
+
+      /* ── Resize ──────────────────────────────────────────── */
+      function resize() {
+        const headerEl = document.querySelector(".header");
+        const headerH = headerEl ? headerEl.getBoundingClientRect().height : 0;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        canvas.style.top = headerH + "px";
+        canvas.style.height = h - headerH + "px";
+        renderer.setSize(w, h - headerH);
+        camera.aspect = w / (h - headerH);
+        camera.updateProjectionMatrix();
+        document.documentElement.style.setProperty(
+          "--header-h",
+          headerH + "px",
+        );
+      }
+      resize();
+      window.addEventListener("resize", resize);
+
+      /* ── Mobile hint toggle ──────────────────────────────── */
+      {
+        const isTouch = window.matchMedia("(pointer: coarse)").matches;
+        const desktopHint = document.getElementById("hint-desktop");
+        const mobileHint = document.getElementById("hint-mobile");
+        if (isTouch && desktopHint && mobileHint) {
+          desktopHint.classList.add("hidden-hint");
+          mobileHint.classList.remove("hidden-hint");
+        }
+      }
+
+      /* ── Camera lerp target ──────────────────────────────── */
+      const camOffset = new THREE.Vector3(0, 9, 21);
+      const camLookAhead = new THREE.Vector3(0, 2, -14);
+
+      /* ── Animation loop ──────────────────────────────────── */
+      let t = 0;
+      const _dir = new THREE.Vector3();
+      const _camIdeal = new THREE.Vector3();
+      const _lookTarget = new THREE.Vector3();
+      const _euler = new THREE.Euler();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        t += 0.016;
+
+        /* Dismiss hint on first input */
+        if (
+          (keys.fwd || keys.rev || keys.left || keys.right) &&
+          !hintEl?.classList.contains("gone")
+        ) {
+          clearTimeout(hintTimer);
+          hintEl?.classList.add("gone");
+        }
+
+        /* ── Truck physics ── */
+        let steerInput = 0;
+        if (keys.left) steerInput = 1;
+        else if (keys.right) steerInput = -1;
+
+        if (keys.fwd) speed = Math.min(speed + ACCEL, MAX_SPEED);
+        else if (keys.rev) speed = Math.max(speed - DECEL, -MAX_REV);
+        else if (speed > 0) speed = Math.max(speed - FRICTION, 0);
+        else if (speed < 0) speed = Math.min(speed + FRICTION, 0);
+
+        if (Math.abs(speed) > 0.002) {
+          heading += steerInput * STEER * (speed / MAX_SPEED);
+        }
+
+        truck.rotation.y = heading;
+
+        _euler.set(0, heading, 0);
+        _dir.set(0, 0, -1).applyEuler(_euler);
+        truck.position.addScaledVector(_dir, speed);
+
+        /* Soft road-edge clamp */
+        const ROAD_HALF = ROAD_W / 2;
+        const CLAMP_MIN_X = -ROAD_HALF + 3;
+        const CLAMP_MAX_X = ROAD_HALF - 3;
+        truck.position.x = Math.max(CLAMP_MIN_X, Math.min(CLAMP_MAX_X, truck.position.x));
+
+        /* ── Camera follow ── */
+        _euler.set(0, heading, 0);
+        _camIdeal.copy(camOffset).applyEuler(_euler).add(truck.position);
+        camera.position.lerp(_camIdeal, 0.07);
+
+        _lookTarget.copy(camLookAhead).applyEuler(_euler).add(truck.position);
+        camera.lookAt(_lookTarget);
+
+        /* ── Pillar animations ── */
+        for (const { beam, halo, ring, ptLight, ev } of pillarObjects) {
+          const dist = truck.position.distanceTo(
+            new THREE.Vector3(ev.x, 0, ev.z),
+          );
+          const near = Math.max(0, 1 - dist / 55);
+          const pulse = 1 + Math.sin(t * 1.8 + ev.z * 0.08) * 0.04;
+
+          beam.material.opacity = 0.38 + near * 0.52;
+          beam.scale.x = beam.scale.z = pulse;
+          halo.material.opacity = 0.04 + near * 0.14;
+          halo.scale.x = halo.scale.z = pulse * 1.15;
+          ptLight.intensity = 1.8 + near * 5.5;
+          ring.material.opacity = 0.15 + near * 0.5;
+          ring.scale.set(pulse * 1.1, pulse * 1.1, 1);
+        }
+
+        /* ── Proximity detection ── */
+        let nearest = null;
+        let nearestDist = Infinity;
+        for (const { ev } of pillarObjects) {
+          const d = truck.position.distanceTo(
+            new THREE.Vector3(ev.x, 0, ev.z),
+          );
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearest = ev;
+          }
+        }
+        if (nearestDist < 22 && nearest) showEventInfo(nearest);
+        else hideEventInfo();
+
+        /* ── HUD updates ── */
+        if (speedFill) {
+          speedFill.style.height =
+            Math.abs(speed / MAX_SPEED) * 100 + "%";
+        }
+        if (progressFill && parsedEvents.length > 0) {
+          const pct = Math.max(
+            0,
+            Math.min(
+              100,
+              ((-truck.position.z - 10) / totalDepth) * 100,
+            ),
+          );
+          progressFill.style.width = pct + "%";
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>

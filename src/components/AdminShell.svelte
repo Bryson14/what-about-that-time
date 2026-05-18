@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Header from './Header.svelte';
   import Toast from './Toast.svelte';
+  import { DEFAULT_GROUPS, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../lib/validation';
 
   interface UserSummary {
     username: string;
@@ -30,6 +31,8 @@
 
   let editingUser = $state<string | null>(null);
   let editGroups = $state('');
+  let resetPasswordUser = $state<string | null>(null);
+  let resetPasswordValue = $state('');
 
   let tagsList = $state<Tag[]>([]);
   let subjectsList = $state<Subject[]>([]);
@@ -66,7 +69,7 @@
       username: addUsername,
       fullName: addFullName,
       password: addPassword,
-      allowedGroups: groups.length > 0 ? groups : ['default'],
+      allowedGroups: groups.length > 0 ? groups : DEFAULT_GROUPS,
     };
 
     const res = await fetch('/api/admin/users', {
@@ -156,6 +159,46 @@
     setTimeout(() => location.reload(), 500);
   }
 
+  function startPasswordReset(user: string) {
+    formError = '';
+    resetPasswordUser = user;
+    resetPasswordValue = '';
+  }
+
+  function cancelPasswordReset() {
+    resetPasswordUser = null;
+    resetPasswordValue = '';
+  }
+
+  async function confirmPasswordReset() {
+    if (!resetPasswordUser) return;
+    formError = '';
+    if (resetPasswordValue.length < MIN_PASSWORD_LENGTH || resetPasswordValue.length > MAX_PASSWORD_LENGTH) {
+      formError = `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters.`;
+      return;
+    }
+
+    const targetUser = resetPasswordUser;
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(targetUser)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password: resetPasswordValue }),
+    });
+
+    if (!res.ok) {
+      try {
+        const json = await res.json();
+        formError = json?.error ? String(json.error) : 'Unable to reset password.';
+      } catch {
+        formError = 'Unable to reset password.';
+      }
+      return;
+    }
+
+    showToast(`Password reset for @${targetUser}`);
+    cancelPasswordReset();
+  }
+
   async function handleAddTag() {
     tagsError = '';
     const name = newTagName.trim();
@@ -215,7 +258,15 @@
         </div>
         <div class="field">
           <label for="add-password">Password</label>
-          <input id="add-password" name="password" type="password" required minlength="8" maxlength="128" bind:value={addPassword} />
+          <input
+            id="add-password"
+            name="password"
+            type="password"
+            required
+            minlength={MIN_PASSWORD_LENGTH}
+            maxlength={MAX_PASSWORD_LENGTH}
+            bind:value={addPassword}
+          />
         </div>
         <div class="field">
           <label for="add-allowedGroups">Allowed group</label>
@@ -232,8 +283,8 @@
   </div>
 
   <div class="card">
-    <h2 style="font-size:1.1rem;margin-bottom:.25rem;">Contributors</h2>
-    <p class="muted" style="margin-bottom:.75rem;">Admin users cannot be removed.</p>
+    <h2 style="font-size:1.1rem;margin-bottom:.25rem;">Users</h2>
+    <p class="muted" style="margin-bottom:.75rem;">All accounts are listed here. Admin users cannot be removed.</p>
     <table>
       <thead>
         <tr>
@@ -266,8 +317,10 @@
             <td>
               {#if user.role === 'admin'}
                 <span class="muted">Owner</span>
+                <button class="reset-btn" type="button" onclick={() => startPasswordReset(user.username)}>Reset password</button>
               {:else}
                 <button class="edit-btn" type="button" onclick={() => startEdit(user)}>Edit</button>
+                <button class="reset-btn" type="button" onclick={() => startPasswordReset(user.username)}>Reset password</button>
                 <button class="delete-btn" type="button" onclick={() => handleDelete(user.username)}>Remove</button>
               {/if}
             </td>
@@ -313,6 +366,27 @@
     {/if}
   </div>
 </div>
+
+{#if resetPasswordUser}
+  <div class="modal-backdrop" role="presentation">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-password-title">
+      <h3 id="reset-password-title">Reset password for @{resetPasswordUser}</h3>
+      <label for="reset-password-input">New password</label>
+      <input
+        id="reset-password-input"
+        type="password"
+        autocomplete="new-password"
+        minlength={MIN_PASSWORD_LENGTH}
+        maxlength={MAX_PASSWORD_LENGTH}
+        bind:value={resetPasswordValue}
+      />
+      <div class="modal-actions">
+        <button class="group-save-btn" type="button" onclick={confirmPasswordReset}>Save password</button>
+        <button class="group-cancel-btn" type="button" onclick={cancelPasswordReset}>Cancel</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <Toast visible={toastVisible} type={toastType} message={toastMsg} />
 
@@ -379,6 +453,16 @@
     padding: .35rem .55rem;
     cursor: pointer;
   }
+  .reset-btn {
+    border: 1px solid #d0d0d0;
+    background: #fff;
+    color: #333;
+    border-radius: 6px;
+    padding: .35rem .55rem;
+    cursor: pointer;
+    margin-right: .25rem;
+  }
+  .reset-btn:hover { background: #f0f0f0; }
   .delete-btn:hover { background: #fff1f1; }
   .edit-btn {
     border: 1px solid #d0d0d0;
@@ -435,5 +519,41 @@
     cursor: pointer;
     font: inherit;
     font-size: .8rem;
+  }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 10;
+  }
+  .modal {
+    width: min(420px, 100%);
+    background: #fff;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+  }
+  .modal h3 {
+    font-size: 1rem;
+    margin: 0;
+  }
+  .modal input {
+    padding: .55rem .65rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+  }
+  .modal-actions {
+    display: flex;
+    gap: .45rem;
+    justify-content: flex-end;
+    margin-top: .25rem;
   }
 </style>
