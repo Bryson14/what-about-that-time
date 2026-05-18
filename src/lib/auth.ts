@@ -1,5 +1,12 @@
 import { env } from "cloudflare:workers";
-import { storedUserSchema, sessionUserSchema } from "./validation";
+import {
+  DEFAULT_GROUPS,
+  legacyStoredUserSchema,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  sessionUserSchema,
+  storedUserSchema,
+} from "./validation";
 
 export const AUTH_COOKIE = "auth_session";
 
@@ -9,7 +16,7 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const PASSWORD_ITERATIONS = 100_000;
 const PASSWORD_HASH_ALGO = "PBKDF2";
 const PASSWORD_DIGEST = "SHA-256";
-const MAX_PASSWORD_LENGTH = 128;
+const FALLBACK_ALLOWED_GROUPS = DEFAULT_GROUPS;
 
 export interface SessionUser {
   username: string;
@@ -24,6 +31,18 @@ interface StoredUser {
   allowedGroups: string[];
   passwordHash: string;
   salt: string;
+}
+
+interface StoredUserRecord {
+  fullName: string;
+  role: "admin" | "user";
+  allowedGroups: string[];
+  passwordHash?: string;
+  salt?: string;
+}
+
+interface KvKey {
+  name: string;
 }
 
 const encoder = new TextEncoder();
@@ -103,7 +122,36 @@ async function hashPassword(password: string, saltHex: string): Promise<string> 
   return toHex(new Uint8Array(bits));
 }
 
-async function getStoredUser(username: string): Promise<StoredUser | null> {
+async function forEachKey(prefix: string, callback: (key: KvKey) => Promise<void>): Promise<void> {
+  let cursor: string | undefined = undefined;
+
+  do {
+    const page = await usersKv().list({ prefix, cursor });
+    await Promise.all((page.keys as KvKey[]).map(callback));
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+}
+
+function normalizeStoredUser(username: string, raw: unknown): StoredUserRecord | null {
+  const parsed = legacyStoredUserSchema.safeParse(raw);
+  if (!parsed.success) return null;
+
+  const fullName = parsed.data.fullName?.trim() || "Unknown user";
+  const role = parsed.data.role ?? "user";
+  const allowedGroups = (parsed.data.allowedGroups ?? [])
+    .map((group) => group.trim())
+    .filter((group) => group.length > 0);
+
+  return {
+    fullName,
+    role,
+    allowedGroups: allowedGroups.length > 0 ? allowedGroups : FALLBACK_ALLOWED_GROUPS,
+    passwordHash: parsed.data.passwordHash,
+    salt: parsed.data.salt,
+  };
+}
+
+async function getStoredUser(username: string): Promise<StoredUserRecord | null> {
   const raw = await usersKv().get(userKey(username), "json");
   if (!isKvRecord(raw)) return null;
   const parsed = storedUserSchema.safeParse(raw);
@@ -154,7 +202,9 @@ function normalizeUserSummary(raw: unknown, username: string): UserSummary | nul
 
 export async function authenticateUser(username: string, password: string): Promise<SessionUser | null> {
   const normalized = normalizeUsername(username);
-  const user = await getStoredUser(normalized);
+  const rawUser = await getStoredUser(normalized);
+  if (!rawUser) return null;
+  const user = toAuthenticatedStoredUser(rawUser);
   if (!user) return null;
 
   const passwordHash = await hashPassword(password, user.salt);
@@ -164,7 +214,7 @@ export async function authenticateUser(username: string, password: string): Prom
     username: normalized,
     fullName: user.fullName,
     role: user.role,
-    allowedGroups: Array.isArray(user.allowedGroups) ? user.allowedGroups : ["default"],
+    allowedGroups: Array.isArray(user.allowedGroups) ? user.allowedGroups : FALLBACK_ALLOWED_GROUPS,
   };
 }
 
@@ -197,7 +247,11 @@ export async function getSessionFromRequest(request: Request): Promise<SessionUs
     return null;
   }
 
-  return { ...session, role: user.role, allowedGroups: Array.isArray(user.allowedGroups) ? user.allowedGroups : ["default"] };
+  return {
+    ...session,
+    role: user.role,
+    allowedGroups: Array.isArray(user.allowedGroups) ? user.allowedGroups : FALLBACK_ALLOWED_GROUPS,
+  };
 }
 
 export async function isAuthenticated(request: Request): Promise<boolean> {
@@ -244,7 +298,6 @@ export async function listUsers(): Promise<UserSummary[]> {
   );
 
   return users
-    .filter((u): u is UserSummary => u !== null)
     .sort((a: UserSummary, b: UserSummary) => a.username.localeCompare(b.username));
 }
 
@@ -293,7 +346,9 @@ export async function createUser(
       error: "username must be 3-32 chars, start/end with a lowercase letter or number, and only use lowercase letters, numbers, dots, underscores, or hyphens",
     };
   }
-  if (password.length < 8) return { ok: false, error: "password must be at least 8 characters" };
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return { ok: false, error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` };
+  }
   if (password.length > MAX_PASSWORD_LENGTH) {
     return { ok: false, error: `password must be ${MAX_PASSWORD_LENGTH} characters or fewer` };
   }

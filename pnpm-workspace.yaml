@@ -1,5 +1,0 @@
-allowBuilds:
-  esbuild: true
-  fallow: true
-  sharp: true
-  workerd: true

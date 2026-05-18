@@ -1,6 +1,7 @@
 <script lang="ts">
   import Header from './Header.svelte';
   import Toast from './Toast.svelte';
+  import { DEFAULT_GROUPS, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../lib/validation';
 
   interface UserSummary {
     username: string;
@@ -47,7 +48,7 @@
       username: addUsername,
       fullName: addFullName,
       password: addPassword,
-      allowedGroups: groups.length > 0 ? groups : ['default'],
+      allowedGroups: groups.length > 0 ? groups : DEFAULT_GROUPS,
     };
 
     const res = await fetch('/api/admin/users', {
@@ -176,6 +177,46 @@
     showToast('Groups updated');
     setTimeout(() => location.reload(), 500);
   }
+
+  function startPasswordReset(user: string) {
+    formError = '';
+    resetPasswordUser = user;
+    resetPasswordValue = '';
+  }
+
+  function cancelPasswordReset() {
+    resetPasswordUser = null;
+    resetPasswordValue = '';
+  }
+
+  async function confirmPasswordReset() {
+    if (!resetPasswordUser) return;
+    formError = '';
+    if (resetPasswordValue.length < MIN_PASSWORD_LENGTH || resetPasswordValue.length > MAX_PASSWORD_LENGTH) {
+      formError = `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters.`;
+      return;
+    }
+
+    const targetUser = resetPasswordUser;
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(targetUser)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password: resetPasswordValue }),
+    });
+
+    if (!res.ok) {
+      try {
+        const json = await res.json();
+        formError = json?.error ? String(json.error) : 'Unable to reset password.';
+      } catch {
+        formError = 'Unable to reset password.';
+      }
+      return;
+    }
+
+    showToast(`Password reset for @${targetUser}`);
+    cancelPasswordReset();
+  }
 </script>
 
 <Header {session} isAdmin={true} title="Admin Dashboard" navLinks={[
@@ -198,7 +239,15 @@
         </div>
         <div class="field">
           <label for="add-password">Password</label>
-          <input id="add-password" name="password" type="password" required minlength="8" maxlength="128" bind:value={addPassword} />
+          <input
+            id="add-password"
+            name="password"
+            type="password"
+            required
+            minlength={MIN_PASSWORD_LENGTH}
+            maxlength={MAX_PASSWORD_LENGTH}
+            bind:value={addPassword}
+          />
         </div>
         <div class="field">
           <label for="add-allowedGroups">Allowed group</label>
@@ -215,8 +264,8 @@
   </div>
 
   <div class="card">
-    <h2 style="font-size:1.1rem;margin-bottom:.25rem;">Contributors</h2>
-    <p class="muted" style="margin-bottom:.75rem;">Admin users cannot be removed.</p>
+    <h2 style="font-size:1.1rem;margin-bottom:.25rem;">Users</h2>
+    <p class="muted" style="margin-bottom:.75rem;">All accounts are listed here. Admin users cannot be removed.</p>
     <table>
       <thead>
         <tr>
@@ -334,6 +383,16 @@
     padding: .35rem .55rem;
     cursor: pointer;
   }
+  .reset-btn {
+    border: 1px solid #d0d0d0;
+    background: #fff;
+    color: #333;
+    border-radius: 6px;
+    padding: .35rem .55rem;
+    cursor: pointer;
+    margin-right: .25rem;
+  }
+  .reset-btn:hover { background: #f0f0f0; }
   .delete-btn:hover { background: #fff1f1; }
   .edit-btn {
     border: 1px solid #d0d0d0;
