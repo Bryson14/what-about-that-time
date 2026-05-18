@@ -328,12 +328,9 @@ export async function updateUserGroups(
   const normalized = normalizeUsername(username);
   const stored = await getStoredUser(normalized);
   if (!stored) return { ok: false, error: "user not found or record is invalid" };
-
-  const user = normalizeUserSummary(stored, normalized);
-  if (!user) return { ok: false, error: "user not found" };
   if (!allowedGroups || allowedGroups.length === 0) return { ok: false, error: "at least one allowed group is required" };
 
-  const updated: StoredUser = { ...stored, fullName: user.fullName, role: user.role, allowedGroups };
+  const updated: StoredUser = { ...stored, allowedGroups };
   await usersKv().put(userKey(normalized), JSON.stringify(updated));
   return { ok: true };
 }
@@ -348,8 +345,7 @@ export async function resetUserPassword(
     return { ok: false, error: `password must be ${MAX_PASSWORD_LENGTH} characters or fewer` };
   }
 
-  const stored = await getStoredUser(normalized);
-  const user = stored ?? normalizeUserSummary(await usersKv().get(userKey(normalized), "json"), normalized);
+  const user = normalizeUserSummary(await usersKv().get(userKey(normalized), "json"), normalized);
   if (!user) return { ok: false, error: "user not found" };
 
   const saltBytes = new Uint8Array(16);
