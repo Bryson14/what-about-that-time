@@ -153,7 +153,7 @@
   let formEl: HTMLFormElement;
 
   let toastMsg = $state('');
-  let toastType: 'success' | 'error' = 'success';
+  let toastType: 'success' | 'error' = $state('success');
   let toastVisible = $state(false);
 
   let sorting = $state<SortingState>([]);
