@@ -38,4 +38,8 @@ export default defineConfig({
       noExternal: ["svelte"],
     },
   },
+
+  experimental: {
+    rustCompiler: true,
+  }
 });
