@@ -30,7 +30,6 @@
       enableSorting: false,
       cell: (info) => info.getValue() ?? '',
     }),
-    columnHelper.display({ id: 'actions', header: '' }),
   ];
 
   let {
@@ -41,7 +40,6 @@
     search = '',
     canModify = (_createdBy: string) => false,
     onEdit = (_ev: EventItem) => {},
-    onDelete = (_id: number, _title: string) => {},
     onSearch = (_value: string) => {},
     onPageChange = (_page: number) => {},
     onPageSizeChange = (_pageSize: number) => {},
@@ -55,15 +53,12 @@
     search?: string;
     canModify?: (createdBy: string) => boolean;
     onEdit?: (ev: EventItem) => void;
-    onDelete?: (id: number, title: string) => void;
     onSearch?: (value: string) => void;
     onPageChange?: (page: number) => void;
     onPageSizeChange?: (pageSize: number) => void;
     sorting?: SortingState;
     onSortingChange?: (updater: SortingState | ((old: SortingState) => SortingState)) => void;
   } = $props();
-
-  let openMenuId = $state<number | null>(null);
 
   let totalPages = $derived(Math.ceil(total / pageSize) || 1);
   let startEntry = $derived(total === 0 ? 0 : (page - 1) * pageSize + 1);
@@ -129,18 +124,8 @@
     onPageSizeChange(next);
   }
 
-  function toggleMenu(evId: number) {
-    openMenuId = openMenuId === evId ? null : evId;
-  }
-
-  function closeMenus() {
-    openMenuId = null;
-  }
-
   const MAX_NOTE_PREVIEW_LENGTH = 50;
 </script>
-
-<svelte:window onclick={() => { if (openMenuId !== null) closeMenus(); }} />
 
 <div class="table-toolbar">
   <input
@@ -179,27 +164,13 @@
     </thead>
     <tbody>
       {#if rows.length === 0}
-        <tr><td colspan={7} class="empty">{search ? 'No matching events' : 'No events yet'}</td></tr>
+        <tr><td colspan={6} class="empty">{search ? 'No matching events' : 'No events yet'}</td></tr>
       {:else}
         {#each rows as row (row.original.id)}
           {@const ev = row.original}
           <tr data-id={ev.id}>
             {#each row.getVisibleCells() as cell (cell.id)}
-              {#if cell.column.id === 'actions'}
-                <td class="actions">
-                  {#if canModify(ev.created_by)}
-                    <div class="menu">
-                      <button class="menu-trigger" type="button" onclick={(e) => { e.stopPropagation(); toggleMenu(ev.id); }} aria-label="Open actions menu">⋯</button>
-                      {#if openMenuId === ev.id}
-                        <div class="menu-panel" onclick={(e) => e.stopPropagation()}>
-                          <button class="edit" type="button" onclick={() => { closeMenus(); onEdit(ev); }}>Edit</button>
-                          <button class="delete" type="button" onclick={() => { closeMenus(); onDelete(ev.id, ev.title); }}>Delete</button>
-                        </div>
-                      {/if}
-                    </div>
-                  {/if}
-                </td>
-              {:else if cell.column.id === 'title'}
+              {#if cell.column.id === 'title'}
                 <td><strong><FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} /></strong></td>
               {:else if cell.column.id === 'notes'}
                 <td class="notes"><FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} /></td>
@@ -222,20 +193,9 @@
   {:else}
     {#each rows as row (row.original.id)}
       {@const ev = row.original}
-      <div class="event-card">
+      <div class="event-card" class:clickable={canModify(ev.created_by)} onclick={canModify(ev.created_by) ? () => onEdit(ev) : undefined}>
         <div class="card-header">
           <strong class="card-title">{ev.title}</strong>
-          {#if canModify(ev.created_by)}
-            <div class="menu">
-              <button class="menu-trigger" type="button" onclick={(e) => { e.stopPropagation(); toggleMenu(ev.id); }} aria-label="Open actions menu">⋯</button>
-              {#if openMenuId === ev.id}
-                <div class="menu-panel" onclick={(e) => e.stopPropagation()}>
-                  <button class="edit" type="button" onclick={() => { closeMenus(); onEdit(ev); }}>Edit</button>
-                  <button class="delete" type="button" onclick={() => { closeMenus(); onDelete(ev.id, ev.title); }}>Delete</button>
-                </div>
-              {/if}
-            </div>
-          {/if}
         </div>
         {#if ev.notes}
           <p class="card-notes">{ev.notes.length > MAX_NOTE_PREVIEW_LENGTH ? ev.notes.slice(0, MAX_NOTE_PREVIEW_LENGTH) + '…' : ev.notes}</p>
@@ -396,8 +356,8 @@
     padding: .75rem .85rem;
     width: 100%;
     max-width: 100%;
-    overflow: hidden;
   }
+  .event-card.clickable { cursor: pointer; }
 
   .card-header {
     display: flex;
@@ -448,68 +408,5 @@
     box-shadow: 0 1px 3px rgba(0,0,0,.1);
   }
 
-  .actions {
-    width: 68px;
-    position: relative;
-  }
 
-  .menu {
-    position: relative;
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .menu-trigger {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 999px;
-    border: 1px solid #d7d7d7;
-    background: #fff;
-    cursor: pointer;
-    font-size: 1.15rem;
-    line-height: 1;
-  }
-  .menu-trigger:hover { background: #f5f5f5; }
-
-  .menu-panel {
-    position: absolute;
-    top: calc(100% + .25rem);
-    right: 0;
-    min-width: 120px;
-    padding: .35rem;
-    border: 1px solid #e5e5e5;
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 8px 20px rgba(0,0,0,.12);
-    z-index: 20;
-    display: flex;
-    flex-direction: column;
-    gap: .25rem;
-  }
-
-  .menu-panel .edit {
-    width: 100%;
-    text-align: left;
-    background: #fff;
-    border: 1px solid #d0d0d0;
-    color: #333;
-    border-radius: 6px;
-    padding: .45rem .55rem;
-    cursor: pointer;
-    font-size: .85rem;
-  }
-  .menu-panel .edit:hover { background: #f5f5f5; }
-
-  .menu-panel .delete {
-    width: 100%;
-    text-align: left;
-    background: #fff;
-    border: 1px solid #f1d1d1;
-    color: #b10000;
-    border-radius: 6px;
-    padding: .45rem .55rem;
-    cursor: pointer;
-    font-size: .85rem;
-  }
-  .menu-panel .delete:hover { background: #fff1f1; }
 </style>
