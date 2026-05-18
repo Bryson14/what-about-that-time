@@ -1,6 +1,7 @@
 <script lang="ts">
   import Header from './Header.svelte';
   import Toast from './Toast.svelte';
+  import { DEFAULT_GROUPS, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../lib/validation';
 
   interface UserSummary {
     username: string;
@@ -26,6 +27,8 @@
 
   let editingUser = $state<string | null>(null);
   let editGroups = $state('');
+  let resetPasswordUser = $state<string | null>(null);
+  let resetPasswordValue = $state('');
 
   function showToast(msg: string, type: 'success' | 'error' = 'success') {
     toastMsg = msg;
@@ -45,7 +48,7 @@
       username: addUsername,
       fullName: addFullName,
       password: addPassword,
-      allowedGroups: groups.length > 0 ? groups : ['default'],
+      allowedGroups: groups.length > 0 ? groups : DEFAULT_GROUPS,
     };
 
     const res = await fetch('/api/admin/users', {
@@ -135,19 +138,30 @@
     setTimeout(() => location.reload(), 500);
   }
 
-  async function resetPassword(user: string) {
+  function startPasswordReset(user: string) {
     formError = '';
-    const nextPassword = window.prompt(`Enter a new password for @${user}`);
-    if (nextPassword === null) return;
-    if (nextPassword.length < 8 || nextPassword.length > 128) {
-      formError = 'Password must be between 8 and 128 characters.';
+    resetPasswordUser = user;
+    resetPasswordValue = '';
+  }
+
+  function cancelPasswordReset() {
+    resetPasswordUser = null;
+    resetPasswordValue = '';
+  }
+
+  async function confirmPasswordReset() {
+    if (!resetPasswordUser) return;
+    formError = '';
+    if (resetPasswordValue.length < MIN_PASSWORD_LENGTH || resetPasswordValue.length > MAX_PASSWORD_LENGTH) {
+      formError = `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters.`;
       return;
     }
 
-    const res = await fetch(`/api/admin/users/${encodeURIComponent(user)}`, {
+    const targetUser = resetPasswordUser;
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(targetUser)}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ password: nextPassword }),
+      body: JSON.stringify({ password: resetPasswordValue }),
     });
 
     if (!res.ok) {
@@ -160,7 +174,8 @@
       return;
     }
 
-    showToast(`Password reset for @${user}`);
+    showToast(`Password reset for @${targetUser}`);
+    cancelPasswordReset();
   }
 </script>
 
@@ -184,7 +199,15 @@
         </div>
         <div class="field">
           <label for="add-password">Password</label>
-          <input id="add-password" name="password" type="password" required minlength="8" maxlength="128" bind:value={addPassword} />
+          <input
+            id="add-password"
+            name="password"
+            type="password"
+            required
+            minlength={MIN_PASSWORD_LENGTH}
+            maxlength={MAX_PASSWORD_LENGTH}
+            bind:value={addPassword}
+          />
         </div>
         <div class="field">
           <label for="add-allowedGroups">Allowed group</label>
@@ -235,10 +258,10 @@
             <td>
               {#if user.role === 'admin'}
                 <span class="muted">Owner</span>
-                <button class="reset-btn" type="button" onclick={() => resetPassword(user.username)}>Reset password</button>
+                <button class="reset-btn" type="button" onclick={() => startPasswordReset(user.username)}>Reset password</button>
               {:else}
                 <button class="edit-btn" type="button" onclick={() => startEdit(user)}>Edit</button>
-                <button class="reset-btn" type="button" onclick={() => resetPassword(user.username)}>Reset password</button>
+                <button class="reset-btn" type="button" onclick={() => startPasswordReset(user.username)}>Reset password</button>
                 <button class="delete-btn" type="button" onclick={() => handleDelete(user.username)}>Remove</button>
               {/if}
             </td>
@@ -248,6 +271,27 @@
     </table>
   </div>
 </div>
+
+{#if resetPasswordUser}
+  <div class="modal-backdrop" role="presentation">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-password-title">
+      <h3 id="reset-password-title">Reset password for @{resetPasswordUser}</h3>
+      <label for="reset-password-input">New password</label>
+      <input
+        id="reset-password-input"
+        type="password"
+        autocomplete="new-password"
+        minlength={MIN_PASSWORD_LENGTH}
+        maxlength={MAX_PASSWORD_LENGTH}
+        bind:value={resetPasswordValue}
+      />
+      <div class="modal-actions">
+        <button class="group-save-btn" type="button" onclick={confirmPasswordReset}>Save password</button>
+        <button class="group-cancel-btn" type="button" onclick={cancelPasswordReset}>Cancel</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <Toast visible={toastVisible} type={toastType} message={toastMsg} />
 
@@ -362,5 +406,41 @@
     cursor: pointer;
     font: inherit;
     font-size: .8rem;
+  }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 10;
+  }
+  .modal {
+    width: min(420px, 100%);
+    background: #fff;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+  }
+  .modal h3 {
+    font-size: 1rem;
+    margin: 0;
+  }
+  .modal input {
+    padding: .55rem .65rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+  }
+  .modal-actions {
+    display: flex;
+    gap: .45rem;
+    justify-content: flex-end;
+    margin-top: .25rem;
   }
 </style>

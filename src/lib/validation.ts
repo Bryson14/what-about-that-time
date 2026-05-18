@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const DEFAULT_GROUPS = ["Adams Family"];
 export const ALL_GROUPS = [...DEFAULT_GROUPS, "Meiling Family"];
+export const MIN_PASSWORD_LENGTH = 8;
+export const MAX_PASSWORD_LENGTH = 128;
 export const MIN_PAGE_SIZE = 1;
 export const MAX_PAGE_SIZE = 100;
 export const DEFAULT_PAGE_SIZE = 10;
@@ -30,7 +32,7 @@ export const paginationSchema = z.object({
 
 export const createUserSchema = z.object({
   username: z.string().min(3).max(32),
-  password: z.string().min(8).max(128),
+  password: z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
   fullName: z.string().min(1).max(100),
   allowedGroups: z.array(z.string().min(1).max(100)).optional().default(DEFAULT_GROUPS),
 });
@@ -84,5 +86,5 @@ export const sessionUserSchema = z.object({
 });
 
 export const resetUserPasswordSchema = z.object({
-  password: z.string().min(8).max(128),
+  password: z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
 });
