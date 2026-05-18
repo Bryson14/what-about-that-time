@@ -34,7 +34,7 @@ try {
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content="Explore your personal timeline — an interactive visual timeline of events." />
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site).href} />
-    <title>Timeline – What About That Time</title>
+    <title>Timeline - What About That Time</title>
     <style>
       * {
         box-sizing: border-box;
@@ -290,7 +290,7 @@ try {
       session={{ fullName: session.fullName, username: session.username }}
       isAdmin={isAdmin}
       title="Timeline"
-      navLinks={[{ href: "/app", label: "Back to list" }]}
+      navLinks={[{ href: "/app", label: "Events" }, { href: "/timeline-v2", label: "Driveable Timeline"}]}
       variant="dark"
     />
 

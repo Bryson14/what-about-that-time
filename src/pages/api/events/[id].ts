@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { getEventById, updateEvent, deleteEvent } from "../../../lib/db";
+import { getEventById, updateEvent, deleteEvent, getGroupById } from "../../../lib/db";
 import { updateEventSchema } from "../../../lib/validation";
 import { isAdminUser } from "../../../lib/auth";
 import { guardAuth, checkGroupAccess, jsonError, noContent, validationError } from "../../../lib/api";
@@ -42,8 +42,10 @@ export const PUT: APIRoute = async (context) => {
     const accessDenied = checkGroupAccess(session, existing.group_name, "update", String(id));
     if (accessDenied) return accessDenied;
 
-    if (parsed.data.group_name !== undefined) {
-      const targetDenied = checkGroupAccess(session, parsed.data.group_name, "update", String(id));
+    if (parsed.data.group_id !== undefined) {
+      const newGroup = await getGroupById(parsed.data.group_id);
+      if (!newGroup) return jsonError("group not found", 404);
+      const targetDenied = checkGroupAccess(session, newGroup.name, "update", String(id));
       if (targetDenied) return targetDenied;
     }
 

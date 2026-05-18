@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { createEvent, getPaginatedEvents } from "../../lib/db";
+import { createEvent, getPaginatedEvents, getGroupById } from "../../lib/db";
 import { createEventSchema, paginationSchema } from "../../lib/validation";
 import { isAdminUser } from "../../lib/auth";
 import { guardAuth, checkGroupAccess, jsonError, validationError, json } from "../../lib/api";
@@ -46,12 +46,15 @@ export const POST: APIRoute = async (context) => {
       return validationError(parsed.error.issues);
     }
 
-    const { group_name, ...rest } = parsed.data;
+    const { group_id, ...rest } = parsed.data;
 
-    const accessDenied = checkGroupAccess(session, group_name, "create", "new");
+    const group = await getGroupById(group_id);
+    if (!group) return jsonError("group not found", 404);
+
+    const accessDenied = checkGroupAccess(session, group.name, "create", "new");
     if (accessDenied) return accessDenied;
 
-    const id = await createEvent({ ...rest, created_by: session.username, group_name });
+    const id = await createEvent({ ...rest, created_by: session.username, group_id });
     logger.info("event created", { username: session.username, id: String(id) });
     return json({ id }, 201);
   } catch (err) {

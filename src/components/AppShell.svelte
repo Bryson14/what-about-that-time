@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Header from './Header.svelte';
   import EventsTable from './EventsTable.svelte';
   import Toast from './Toast.svelte';
+
   import { QueryClient, QueryClientProvider, createMutation, createQuery } from '@tanstack/svelte-query';
   import type { SortingState } from '@tanstack/svelte-table';
   import {
@@ -13,6 +15,21 @@
   } from '../lib/validation';
   import { logger } from '../lib/logging';
 
+  interface GroupOption {
+    id: number;
+    name: string;
+  }
+
+  interface Tag {
+    id: number;
+    name: string;
+  }
+
+  interface Subject {
+    id: number;
+    name: string;
+  }
+
   interface EventItem {
     id: number;
     title: string;
@@ -21,12 +38,13 @@
     notes: string | null;
     created_by: string;
     created_at: string;
+    group_id: number;
     group_name: string;
   }
 
-  type EventMutationInput = {
-    eventId?: number;
-    body: Record<string, string>;
+  type EventMutationResult = {
+    eventId: number;
+    isNew: boolean;
   };
 
   let {
@@ -48,28 +66,88 @@
     initialPage?: number;
     pageSize?: number;
     initialSearch?: string;
-    userGroups?: string[];
+    userGroups?: GroupOption[];
     demo?: boolean;
     navLinks?: { href: string; label: string }[];
   } = $props();
 
   const STORAGE_KEY = 'demo_events';
-  const REFETCH_INTERVAL_MS = 60000;
-  const queryClient = new QueryClient();
   let allEvents: EventItem[] = $state([]);
   let events = $state(initialEvents);
   let total = $state(initialTotal);
   let page = $state(initialPage);
   let search = $state(initialSearch);
   let demoLoaded = $state(false);
-  let lastQueryError = $state('');
+
+  const queryClient = new QueryClient();
+
+  const eventsQuery = createQuery(() => ({
+    queryKey: ['events', page, pageSize, search],
+    enabled: !demo,
+    queryFn: () => requestPaginatedEvents(page, search),
+    initialData: () => ({
+      events: initialEvents,
+      total: initialTotal,
+      page: initialPage,
+      pageSize,
+      totalPages: Math.max(Math.ceil(initialTotal / pageSize), 1),
+    }),
+  }), () => queryClient);
+
+  const saveEventMutation = createMutation(() => ({
+    mutationFn: async ({ eventId, body }: { eventId?: number; body: Record<string, string> }): Promise<EventMutationResult> => {
+      const url = eventId ? `/api/events/${eventId}` : '/api/events';
+      const method = eventId ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to save event'));
+      }
+      if (!eventId) {
+        const data = await response.json();
+        return { eventId: data.id as number, isNew: true };
+      }
+      return { eventId, isNew: false };
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+    onError: (error) => {
+      showToast(error instanceof Error ? error.message : 'Failed to save event', 'error');
+    },
+  }), () => queryClient);
+
+  const deleteEventMutation = createMutation(() => ({
+    mutationFn: async (eventId: number) => {
+      const response = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to delete event'));
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+    onError: (error) => {
+      showToast(error instanceof Error ? error.message : 'Failed to delete event', 'error');
+    },
+  }), () => queryClient);
 
   let editId = $state<number | null>(null);
   let editTitle = $state('');
   let editStartDate = $state('');
   let editEndDate = $state('');
-  let editGroup = $state('');
+  let editGroupId = $state<number | null>(null);
   let editNotes = $state('');
+
+  let availableTags = $state<Tag[]>([]);
+  let availableSubjects = $state<Subject[]>([]);
+  let editTagIds = $state<Set<number>>(new Set());
+  let editSubjectIds = $state<Set<number>>(new Set());
+  let newTagName = $state('');
+  let newSubjectName = $state('');
 
   let dialogEl: HTMLDialogElement;
   let formEl: HTMLFormElement;
@@ -79,9 +157,22 @@
   let toastVisible = $state(false);
 
   let sorting = $state<SortingState>([]);
+  let eventTagMap = $state<Map<number, Tag[]>>(new Map());
+  let eventSubjectMap = $state<Map<number, Subject[]>>(new Map());
 
   let dialogTitle = $derived(editId !== null ? 'Edit Event' : 'Add Event');
   let submitLabel = $derived(editId !== null ? 'Save' : 'Add');
+
+  onMount(async () => {
+    if (demo) return;
+    try {
+      const [tagsRes, subjectsRes] = await Promise.all([fetch('/api/tags'), fetch('/api/subjects')]);
+      if (tagsRes.ok) availableTags = await tagsRes.json();
+      if (subjectsRes.ok) availableSubjects = await subjectsRes.json();
+    } catch {
+      // non-critical; tags/subjects will remain empty
+    }
+  });
 
   async function getErrorMessage(response: Response, fallback: string): Promise<string> {
     try {
@@ -99,11 +190,7 @@
   }
 
   async function requestPaginatedEvents(pageNum: number, query: string) {
-    const params = new URLSearchParams({
-      page: String(pageNum),
-      pageSize: String(pageSize),
-      search: query,
-    });
+    const params = new URLSearchParams({ page: String(pageNum), pageSize: String(pageSize), search: query });
     const response = await fetch('/api/events?' + params.toString());
     if (!response.ok) {
       throw new Error(await getErrorMessage(response, 'Failed to load events'));
@@ -111,74 +198,11 @@
     const payload = await response.json();
     const parsed = paginatedEventsResponseSchema.safeParse(payload);
     if (!parsed.success) {
-      logger.error('events response validation failed', {
-        issues: JSON.stringify(parsed.error.issues),
-      });
+      logger.error('events response validation failed', { issues: JSON.stringify(parsed.error.issues) });
       throw new Error('Invalid events response');
     }
     return parsed.data;
   }
-
-  const eventsQuery = createQuery(() => ({
-    queryKey: ['events', page, pageSize, search],
-    enabled: !demo,
-    refetchInterval: REFETCH_INTERVAL_MS,
-    refetchOnWindowFocus: true,
-    queryFn: () => requestPaginatedEvents(page, search),
-    initialData: {
-      events: initialEvents,
-      total: initialTotal,
-      page: initialPage,
-      pageSize,
-      totalPages: Math.max(Math.ceil(initialTotal / pageSize), 1),
-    },
-  }), () => queryClient);
-
-  const saveEventMutation = createMutation(() => ({
-    mutationFn: async ({ eventId, body }: EventMutationInput) => {
-      const url = eventId ? `/api/events/${eventId}` : '/api/events';
-      const method = eventId ? 'PUT' : 'POST';
-      const response = await fetch(url, {
-        method,
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to save event'));
-      }
-      return { eventId };
-    },
-    onSuccess: async ({ eventId }) => {
-      closeDialog();
-      formEl?.reset();
-      clearEventIdInput();
-      if (!eventId) {
-        page = 1;
-        search = '';
-      }
-      await queryClient.invalidateQueries({ queryKey: ['events'] });
-      showToast(eventId ? 'Event updated' : 'Event added');
-    },
-    onError: (error) => {
-      showToast(error instanceof Error ? error.message : 'Failed to save event', 'error');
-    },
-  }), () => queryClient);
-
-  const deleteEventMutation = createMutation(() => ({
-    mutationFn: async (eventId: number) => {
-      const response = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to delete event'));
-      }
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['events'] });
-      showToast('Event deleted');
-    },
-    onError: (error) => {
-      showToast(error instanceof Error ? error.message : 'Failed to delete event', 'error');
-    },
-  }), () => queryClient);
 
   $effect(() => {
     if (demo && !demoLoaded && typeof window !== 'undefined') {
@@ -199,16 +223,49 @@
     events = data.events;
     total = data.total;
     page = data.page;
-    lastQueryError = '';
   });
 
   $effect(() => {
     if (demo) return;
     const error = eventsQuery.error;
     if (!(error instanceof Error)) return;
-    if (error.message === lastQueryError) return;
-    lastQueryError = error.message;
     showToast(error.message, 'error');
+  });
+
+  $effect(() => {
+    const currentEvents = events;
+    if (demo || currentEvents.length === 0) {
+      eventTagMap = new Map();
+      eventSubjectMap = new Map();
+      return;
+    }
+    const controller = new AbortController();
+    (async () => {
+      const tagResults = await Promise.all(
+        currentEvents.map(ev =>
+          fetch(`/api/events/${ev.id}/tags`, { signal: controller.signal })
+            .then(r => r.ok ? r.json() : [])
+            .catch(() => [] as Tag[])
+        )
+      );
+      const subjectResults = await Promise.all(
+        currentEvents.map(ev =>
+          fetch(`/api/events/${ev.id}/subjects`, { signal: controller.signal })
+            .then(r => r.ok ? r.json() : [])
+            .catch(() => [] as Subject[])
+        )
+      );
+      if (controller.signal.aborted) return;
+      const newTagMap = new Map<number, Tag[]>();
+      const newSubjectMap = new Map<number, Subject[]>();
+      currentEvents.forEach((ev, i) => {
+        newTagMap.set(ev.id, tagResults[i] as Tag[]);
+        newSubjectMap.set(ev.id, subjectResults[i] as Subject[]);
+      });
+      eventTagMap = newTagMap;
+      eventSubjectMap = newSubjectMap;
+    })();
+    return () => controller.abort();
   });
 
   function showToast(msg: string, type: 'success' | 'error' = 'success') {
@@ -247,25 +304,133 @@
     return isAdmin || createdBy === session.username;
   }
 
+  function toggleTag(id: number) {
+    const next = new Set(editTagIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    editTagIds = next;
+  }
+
+  function toggleSubject(id: number) {
+    const next = new Set(editSubjectIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    editSubjectIds = next;
+  }
+
+  async function handleAddTag() {
+    const name = newTagName.trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) return;
+      const { id } = await res.json();
+      availableTags = [...availableTags, { id, name }];
+      editTagIds = new Set([...editTagIds, id]);
+      newTagName = '';
+    } catch { /* ignore */ }
+  }
+
+  async function handleAddSubject() {
+    const name = newSubjectName.trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/subjects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) return;
+      const { id } = await res.json();
+      availableSubjects = [...availableSubjects, { id, name }];
+      editSubjectIds = new Set([...editSubjectIds, id]);
+      newSubjectName = '';
+    } catch { /* ignore */ }
+  }
+
+  async function syncEventTags(eventId: number, selectedIds: Set<number>) {
+    try {
+      const res = await fetch(`/api/events/${eventId}/tags`);
+      const currentTags: Tag[] = res.ok ? await res.json() : [];
+      const currentIds = new Set(currentTags.map(t => t.id));
+      const adds = [...selectedIds].filter(id => !currentIds.has(id));
+      const removes = [...currentIds].filter(id => !selectedIds.has(id));
+      await Promise.all([
+        ...adds.map(id => fetch(`/api/events/${eventId}/tags`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ tag_id: id }),
+        })),
+        ...removes.map(id => fetch(`/api/events/${eventId}/tags/${id}`, { method: 'DELETE' })),
+      ]);
+    } catch (err) {
+      logger.warn('failed to sync event tags', { eventId: String(eventId), error: String(err) });
+    }
+  }
+
+  async function syncEventSubjects(eventId: number, selectedIds: Set<number>) {
+    try {
+      const res = await fetch(`/api/events/${eventId}/subjects`);
+      const currentSubjects: Subject[] = res.ok ? await res.json() : [];
+      const currentIds = new Set(currentSubjects.map(s => s.id));
+      const adds = [...selectedIds].filter(id => !currentIds.has(id));
+      const removes = [...currentIds].filter(id => !selectedIds.has(id));
+      await Promise.all([
+        ...adds.map(id => fetch(`/api/events/${eventId}/subjects`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ subject_id: id }),
+        })),
+        ...removes.map(id => fetch(`/api/events/${eventId}/subjects/${id}`, { method: 'DELETE' })),
+      ]);
+    } catch (err) {
+      logger.warn('failed to sync event subjects', { eventId: String(eventId), error: String(err) });
+    }
+  }
+
   function openAddDialog() {
     editId = null;
     editTitle = '';
     editStartDate = '';
     editEndDate = '';
-    editGroup = userGroups[0] ?? 'default';
+    editGroupId = userGroups[0]?.id ?? null;
     editNotes = '';
+    editTagIds = new Set();
+    editSubjectIds = new Set();
     clearEventIdInput();
     dialogEl?.showModal();
   }
 
-  function openEditDialog(ev: EventItem) {
+  async function openEditDialog(ev: EventItem) {
     editId = ev.id;
     editTitle = ev.title;
     editStartDate = ev.start_date;
     editEndDate = ev.end_date ?? '';
-    editGroup = ev.group_name;
+    editGroupId = ev.group_id;
     editNotes = ev.notes ?? '';
+    editTagIds = new Set();
+    editSubjectIds = new Set();
     dialogEl?.showModal();
+    if (!demo) {
+      try {
+        const [tagsRes, subjectsRes] = await Promise.all([
+          fetch(`/api/events/${ev.id}/tags`),
+          fetch(`/api/events/${ev.id}/subjects`),
+        ]);
+        if (tagsRes.ok) {
+          const tags: Tag[] = await tagsRes.json();
+          editTagIds = new Set(tags.map(t => t.id));
+        }
+        if (subjectsRes.ok) {
+          const subjects: Subject[] = await subjectsRes.json();
+          editSubjectIds = new Set(subjects.map(s => s.id));
+        }
+      } catch (err) {
+        logger.warn('failed to load event tags/subjects for edit', { eventId: String(ev.id), error: String(err) });
+      }
+    }
   }
 
   function closeDialog() {
@@ -287,13 +452,16 @@
 
     if (demo) {
       const now = new Date().toISOString();
+      const groupId = Number(body.group_id) || userGroups[0]?.id || 0;
+      const groupName = userGroups.find(g => g.id === groupId)?.name ?? 'General';
       const eventData: EventItem = {
         id: eventId ?? (Math.max(...allEvents.map(e => e.id), 0) + 1),
         title: body.title,
         start_date: body.start_date,
         end_date: body.end_date || null,
         notes: body.notes || null,
-        group_name: body.group_name || 'General',
+        group_id: groupId,
+        group_name: groupName,
         created_by: session.username || 'demo',
         created_at: now,
       };
@@ -313,7 +481,39 @@
       return;
     }
 
-    await saveEventMutation.mutateAsync({ eventId, body });
+    const capturedTagIds = new Set(editTagIds);
+    const capturedSubjectIds = new Set(editSubjectIds);
+
+    const result = await saveEventMutation.mutateAsync({ eventId, body });
+    showToast(result.isNew ? 'Event added' : 'Event updated');
+    closeDialog();
+    formEl?.reset();
+    clearEventIdInput();
+
+    const groupId = Number(body.group_id);
+    const groupName = userGroups.find(g => g.id === groupId)?.name ?? '';
+    const displayEvent: EventItem = {
+      id: result.eventId,
+      title: body.title,
+      start_date: body.start_date,
+      end_date: body.end_date || null,
+      notes: body.notes || null,
+      group_id: groupId,
+      group_name: groupName,
+      created_by: session.username,
+      created_at: new Date().toISOString(),
+    };
+    if (result.isNew) {
+      page = 1;
+      search = '';
+      events = [displayEvent, ...events];
+      total = total + 1;
+    } else {
+      events = events.map(ev => ev.id === result.eventId ? displayEvent : ev);
+    }
+
+    await syncEventTags(result.eventId, capturedTagIds);
+    await syncEventSubjects(result.eventId, capturedSubjectIds);
   }
 
   function applyDemoFilter() {
@@ -373,7 +573,11 @@
       applyDemoFilter();
       return;
     }
+    closeDialog();
     await deleteEventMutation.mutateAsync(evId);
+    events = events.filter(ev => ev.id !== evId);
+    total = total - 1;
+    showToast('Event deleted');
   }
 </script>
 
@@ -389,6 +593,8 @@
       {page}
       {pageSize}
       {search}
+      eventTagMap={demo ? new Map() : eventTagMap}
+      eventSubjectMap={demo ? new Map() : eventSubjectMap}
       canModify={canModify}
       onEdit={openEditDialog}
       onSearch={onSearch}
@@ -421,18 +627,55 @@
           <input id="end_date" name="end_date" type="date" value={editEndDate} oninput={(e) => editEndDate = (e.target as HTMLInputElement).value} />
         </div>
         <div class="field">
-          <label for="group_name">Group</label>
-          {#if isAdmin || userGroups.length > 1}
-            <input id="group_name" name="group_name" required maxlength="100" list="group-list" value={editGroup} oninput={(e) => editGroup = (e.target as HTMLInputElement).value} />
-            <datalist id="group-list">
-              {#each userGroups as g}
-                <option value={g} />
-              {/each}
-            </datalist>
-          {:else}
-            <input id="group_name" name="group_name" required maxlength="100" readonly value={editGroup} />
-          {/if}
+          <label for="group_id">Group</label>
+          <select id="group_id" name="group_id" required>
+            {#each userGroups as g}
+              <option value={g.id} selected={editGroupId === g.id}>{g.name}</option>
+            {/each}
+          </select>
         </div>
+        {#if !demo}
+          <div class="field">
+            <label>Tags <em>(Optional)</em></label>
+            {#if availableTags.length > 0}
+              <div class="chip-group">
+                {#each availableTags as tag}
+                  <label class="chip-label">
+                    <input type="checkbox" checked={editTagIds.has(tag.id)} onchange={() => toggleTag(tag.id)} />
+                    {tag.name}
+                  </label>
+                {/each}
+              </div>
+            {:else}
+              <p class="empty-chips">No tags yet. Create one below.</p>
+            {/if}
+            <div class="inline-add">
+              <input type="text" placeholder="New tag name..." bind:value={newTagName} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); }}} />
+              <button type="button" onclick={handleAddTag} disabled={!newTagName.trim()}>+</button>
+            </div>
+          </div>
+        {/if}
+        {#if !demo}
+          <div class="field">
+            <label>Subjects <em>(Optional)</em></label>
+            {#if availableSubjects.length > 0}
+              <div class="chip-group">
+                {#each availableSubjects as subject}
+                  <label class="chip-label">
+                    <input type="checkbox" checked={editSubjectIds.has(subject.id)} onchange={() => toggleSubject(subject.id)} />
+                    {subject.name}
+                  </label>
+                {/each}
+              </div>
+            {:else}
+              <p class="empty-chips">No subjects yet. Create one below.</p>
+            {/if}
+            <div class="inline-add">
+              <input type="text" placeholder="New subject name..." bind:value={newSubjectName} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubject(); }}} />
+              <button type="button" onclick={handleAddSubject} disabled={!newSubjectName.trim()}>+</button>
+            </div>
+          </div>
+        {/if}
         <div class="field">
           <label for="notes">Notes <em>(Optional)</em></label>
           <textarea id="notes" name="notes" rows="2" maxlength="5000" value={editNotes} oninput={(e) => editNotes = (e.target as HTMLTextAreaElement).value}></textarea>
@@ -509,10 +752,58 @@
 
   .field { display: flex; flex-direction: column; gap: .3rem; }
   .field label { font-size: .8rem; font-weight: 600; color: #555; }
-  .field input, .field textarea {
+  .field input, .field textarea, .field select {
     padding: .5rem; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: 1rem;
   }
   .field textarea { resize: vertical; }
+
+  .chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+  }
+  .chip-label {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    font-size: .8rem;
+    font-weight: normal !important;
+    color: #333;
+    background: #f3f3f3;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    padding: .2rem .6rem;
+    cursor: pointer;
+  }
+  .chip-label input[type="checkbox"] { margin: 0; accent-color: #1a1a1a; }
+
+  .empty-chips { font-size: .8rem; color: #999; margin: .2rem 0; }
+
+  .inline-add {
+    display: flex;
+    gap: .3rem;
+    margin-top: .35rem;
+  }
+  .inline-add input {
+    flex: 1;
+    padding: .3rem .5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+    font-size: .85rem;
+  }
+  .inline-add button {
+    padding: .3rem .6rem;
+    border: 1px solid #ccc;
+    background: #f3f3f3;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .inline-add button:hover:not(:disabled) { background: #e5e5e5; }
+  .inline-add button:disabled { opacity: .4; cursor: default; }
 
   .save-btn {
     padding: .6rem 1rem; background: #1a1a1a; color: #fff;

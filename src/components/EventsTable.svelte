@@ -2,6 +2,9 @@
   import { createTable, FlexRender, createColumnHelper, stockFeatures, createCoreRowModel, createSortedRowModel } from '@tanstack/svelte-table';
   import type { SortingState } from '@tanstack/svelte-table';
 
+  interface Tag { id: number; name: string; }
+  interface Subject { id: number; name: string; }
+
   interface EventItem {
     id: number;
     title: string;
@@ -38,6 +41,8 @@
     page = 1,
     pageSize = 10,
     search = '',
+    eventTagMap = new Map<number, Tag[]>(),
+    eventSubjectMap = new Map<number, Subject[]>(),
     canModify = (_createdBy: string) => false,
     onEdit = (_ev: EventItem) => {},
     onSearch = (_value: string) => {},
@@ -51,6 +56,8 @@
     page?: number;
     pageSize?: number;
     search?: string;
+    eventTagMap?: Map<number, Tag[]>;
+    eventSubjectMap?: Map<number, Subject[]>;
     canModify?: (createdBy: string) => boolean;
     onEdit?: (ev: EventItem) => void;
     onSearch?: (value: string) => void;
@@ -105,6 +112,14 @@
     onSortingChange: (updater) => {
       onSortingChange(updater as SortingState | ((old: SortingState) => SortingState));
     },
+  });
+
+  $effect(() => {
+    table.setOptions((prev) => ({
+      ...prev,
+      data: events,
+      state: { ...prev.state, sorting },
+    }));
   });
 
   let headerGroups = $derived(table.getHeaderGroups());
@@ -205,6 +220,20 @@
           <span class="meta-item" aria-label="Group: {ev.group_name}">📁 {ev.group_name}</span>
           <span class="meta-item" aria-label="Date: {ev.start_date}{ev.end_date ? ` to ${ev.end_date}` : ''}">📅 {ev.start_date}{ev.end_date ? ` – ${ev.end_date}` : ''}</span>
         </div>
+        {#if true}
+          {@const evTags = eventTagMap.get(ev.id)}
+          {@const evSubjects = eventSubjectMap.get(ev.id)}
+          {#if (evTags && evTags.length > 0) || (evSubjects && evSubjects.length > 0)}
+            <div class="card-tags-row">
+              {#each evTags ?? [] as tag}
+                <span class="tag-chip">{tag.name}</span>
+              {/each}
+              {#each evSubjects ?? [] as subject}
+                <span class="subject-chip">{subject.name}</span>
+              {/each}
+            </div>
+          {/if}
+        {/if}
       </div>
     {/each}
   {/if}
@@ -397,6 +426,31 @@
     white-space: normal;
     overflow-wrap: anywhere;
     max-width: 100%;
+  }
+
+  .card-tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+    margin-top: .4rem;
+  }
+
+  .tag-chip {
+    font-size: .7rem;
+    background: #e8f0fe;
+    color: #1967d2;
+    border-radius: 999px;
+    padding: .1rem .45rem;
+    white-space: nowrap;
+  }
+
+  .subject-chip {
+    font-size: .7rem;
+    background: #fce8e6;
+    color: #c5221f;
+    border-radius: 999px;
+    padding: .1rem .45rem;
+    white-space: nowrap;
   }
 
   .empty-cards {
