@@ -262,6 +262,21 @@ async function listSessionKeys(): Promise<string[]> {
   return keyNames;
 }
 
+async function invalidateUserSessions(username: string): Promise<void> {
+  const normalized = normalizeUsername(username);
+  const sessionKeys = await listSessionKeys();
+  await Promise.all(
+    sessionKeys.map(async (sessionKeyName: string) => {
+      const rawSession = await usersKv().get(sessionKeyName, "json");
+      if (!rawSession) return;
+      const parsed = sessionUserSchema.safeParse(rawSession);
+      if (parsed.success && parsed.data.username === normalized) {
+        await usersKv().delete(sessionKeyName);
+      }
+    })
+  );
+}
+
 export async function createUser(
   username: string,
   password: string,
@@ -312,11 +327,7 @@ export async function updateUserGroups(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const normalized = normalizeUsername(username);
   const stored = await getStoredUser(normalized);
-  if (!stored) {
-    const raw = await usersKv().get(userKey(normalized), "json");
-    if (!normalizeUserSummary(raw, normalized)) return { ok: false, error: "user not found" };
-    return { ok: false, error: "user record is invalid or corrupted" };
-  }
+  if (!stored) return { ok: false, error: "user not found or record is invalid" };
 
   const user = normalizeUserSummary(stored, normalized);
   if (!user) return { ok: false, error: "user not found" };
@@ -337,8 +348,8 @@ export async function resetUserPassword(
     return { ok: false, error: `password must be ${MAX_PASSWORD_LENGTH} characters or fewer` };
   }
 
-  const raw = await usersKv().get(userKey(normalized), "json");
-  const user = normalizeUserSummary(raw, normalized);
+  const stored = await getStoredUser(normalized);
+  const user = stored ?? normalizeUserSummary(await usersKv().get(userKey(normalized), "json"), normalized);
   if (!user) return { ok: false, error: "user not found" };
 
   const saltBytes = new Uint8Array(16);
@@ -354,18 +365,7 @@ export async function resetUserPassword(
     salt,
   };
   await usersKv().put(userKey(normalized), JSON.stringify(updated));
-
-  const sessionKeys = await listSessionKeys();
-  await Promise.all(
-    sessionKeys.map(async (sessionKeyName: string) => {
-      const rawSession = await usersKv().get(sessionKeyName, "json");
-      if (!rawSession) return;
-      const parsed = sessionUserSchema.safeParse(rawSession);
-      if (parsed.success && parsed.data.username === normalized) {
-        await usersKv().delete(sessionKeyName);
-      }
-    })
-  );
+  await invalidateUserSessions(normalized);
 
   return { ok: true };
 }
@@ -379,18 +379,7 @@ export async function deleteUser(username: string): Promise<{ ok: true } | { ok:
 
   const key = userKey(normalized);
   await usersKv().delete(key);
-
-  const sessionKeys = await listSessionKeys();
-  await Promise.all(
-    sessionKeys.map(async (sessionKeyName: string) => {
-      const raw = await usersKv().get(sessionKeyName, "json");
-      if (!raw) return;
-      const parsed = sessionUserSchema.safeParse(raw);
-      if (parsed.success && parsed.data.username === normalized) {
-        await usersKv().delete(sessionKeyName);
-      }
-    })
-  );
+  await invalidateUserSessions(normalized);
 
   return { ok: true };
 }
