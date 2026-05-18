@@ -93,6 +93,34 @@
     setTimeout(() => location.reload(), 500);
   }
 
+  async function handleResetPassword(user: string) {
+    formError = '';
+    const password = window.prompt(`Set a new password for @${user} (minimum 8 characters):`);
+    if (password === null) return;
+    if (password.length < 8) {
+      formError = 'Password must be at least 8 characters.';
+      return;
+    }
+
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(user)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+
+    if (!res.ok) {
+      try {
+        const json = await res.json();
+        formError = json?.error ? String(json.error) : 'Unable to reset password.';
+      } catch {
+        formError = 'Unable to reset password.';
+      }
+      return;
+    }
+
+    showToast(`Password reset for @${user}`);
+  }
+
   function startEdit(user: UserSummary) {
     editingUser = user.username;
     editGroups = user.allowedGroups.join(', ');
@@ -207,8 +235,10 @@
             <td>
               {#if user.role === 'admin'}
                 <span class="muted">Owner</span>
+                <button class="reset-btn" type="button" onclick={() => handleResetPassword(user.username)}>Reset password</button>
               {:else}
                 <button class="edit-btn" type="button" onclick={() => startEdit(user)}>Edit</button>
+                <button class="reset-btn" type="button" onclick={() => handleResetPassword(user.username)}>Reset password</button>
                 <button class="delete-btn" type="button" onclick={() => handleDelete(user.username)}>Remove</button>
               {/if}
             </td>
@@ -277,6 +307,16 @@
     margin-right: .25rem;
   }
   .edit-btn:hover { background: #f0f0f0; }
+  .reset-btn {
+    border: 1px solid #d0d0d0;
+    background: #fff;
+    color: #333;
+    border-radius: 6px;
+    padding: .35rem .55rem;
+    cursor: pointer;
+    margin-right: .25rem;
+  }
+  .reset-btn:hover { background: #f0f0f0; }
   .muted { color: #777; font-size: .9rem; }
   .error {
     color: #a10000;

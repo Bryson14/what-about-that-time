@@ -39,6 +39,10 @@ export const updateUserGroupsSchema = z.object({
   allowedGroups: z.array(z.string().min(1).max(100)).min(1, "at least one group is required"),
 });
 
+export const updateUserPasswordSchema = z.object({
+  password: z.string().min(8).max(128),
+});
+
 export const errorResponseSchema = z.object({
   error: z.union([z.string(), z.array(z.any())]),
 });
