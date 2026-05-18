@@ -231,8 +231,7 @@ export async function listUsers(): Promise<UserSummary[]> {
   do {
     const page = await usersKv().list({ prefix: USER_PREFIX, cursor });
     keyNames.push(...page.keys.map((key: { name: string }) => key.name));
-    if (page.list_complete) break;
-    if (!page.cursor) break;
+    if (!page.cursor || page.list_complete) break;
     cursor = page.cursor;
   } while (true);
 
@@ -256,8 +255,7 @@ async function listSessionKeys(): Promise<string[]> {
   do {
     const page = await usersKv().list({ prefix: SESSION_PREFIX, cursor });
     keyNames.push(...page.keys.map((key: { name: string }) => key.name));
-    if (page.list_complete) break;
-    if (!page.cursor) break;
+    if (!page.cursor || page.list_complete) break;
     cursor = page.cursor;
   } while (true);
 
