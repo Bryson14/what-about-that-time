@@ -27,8 +27,8 @@
 
   let editingUser = $state<string | null>(null);
   let editGroups = $state('');
-  let resetPasswordUser = $state<string | null>(null);
-  let resetPasswordValue = $state('');
+  let resetUser = $state<string | null>(null);
+  let resetPassword = $state('');
 
   function showToast(msg: string, type: 'success' | 'error' = 'success') {
     toastMsg = msg;
@@ -94,6 +94,46 @@
 
     showToast('User removed');
     setTimeout(() => location.reload(), 500);
+  }
+
+  function openResetPassword(user: string) {
+    formError = '';
+    resetUser = user;
+    resetPassword = '';
+  }
+
+  function closeResetPassword() {
+    resetUser = null;
+    resetPassword = '';
+  }
+
+  function onResetPasswordSubmit(e: SubmitEvent) {
+    e.preventDefault();
+    void submitResetPassword();
+  }
+
+  async function submitResetPassword() {
+    if (!resetUser) return;
+    formError = '';
+    const targetUser = resetUser;
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(targetUser)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password: resetPassword }),
+    });
+
+    if (!res.ok) {
+      try {
+        const json = await res.json();
+        formError = json?.error ? String(json.error) : 'Unable to reset password.';
+      } catch {
+        formError = 'Unable to reset password.';
+      }
+      return;
+    }
+
+    closeResetPassword();
+    showToast(`Password reset for @${targetUser}`);
   }
 
   function startEdit(user: UserSummary) {
@@ -258,10 +298,10 @@
             <td>
               {#if user.role === 'admin'}
                 <span class="muted">Owner</span>
-                <button class="reset-btn" type="button" onclick={() => startPasswordReset(user.username)}>Reset password</button>
+                <button class="reset-btn" type="button" onclick={() => openResetPassword(user.username)}>Reset password</button>
               {:else}
                 <button class="edit-btn" type="button" onclick={() => startEdit(user)}>Edit</button>
-                <button class="reset-btn" type="button" onclick={() => startPasswordReset(user.username)}>Reset password</button>
+                <button class="reset-btn" type="button" onclick={() => openResetPassword(user.username)}>Reset password</button>
                 <button class="delete-btn" type="button" onclick={() => handleDelete(user.username)}>Remove</button>
               {/if}
             </td>
@@ -272,23 +312,26 @@
   </div>
 </div>
 
-{#if resetPasswordUser}
-  <div class="modal-backdrop" role="presentation">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-password-title">
-      <h3 id="reset-password-title">Reset password for @{resetPasswordUser}</h3>
-      <label for="reset-password-input">New password</label>
-      <input
-        id="reset-password-input"
-        type="password"
-        autocomplete="new-password"
-        minlength={MIN_PASSWORD_LENGTH}
-        maxlength={MAX_PASSWORD_LENGTH}
-        bind:value={resetPasswordValue}
-      />
-      <div class="modal-actions">
-        <button class="group-save-btn" type="button" onclick={confirmPasswordReset}>Save password</button>
-        <button class="group-cancel-btn" type="button" onclick={cancelPasswordReset}>Cancel</button>
-      </div>
+{#if resetUser}
+  <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="reset-password-title">
+    <div class="modal-card">
+      <h3 id="reset-password-title">Reset password for @{resetUser}</h3>
+      <form onsubmit={onResetPasswordSubmit}>
+        <label for="reset-password-input">New password</label>
+        <input
+          id="reset-password-input"
+          name="password"
+          type="password"
+          minlength="8"
+          maxlength="128"
+          required
+          bind:value={resetPassword}
+        />
+        <div class="modal-actions">
+          <button type="submit" class="save-btn">Reset password</button>
+          <button type="button" class="group-cancel-btn" onclick={closeResetPassword}>Cancel</button>
+        </div>
+      </form>
     </div>
   </div>
 {/if}
@@ -361,6 +404,16 @@
     margin-right: .25rem;
   }
   .edit-btn:hover { background: #f0f0f0; }
+  .reset-btn {
+    border: 1px solid #d0d0d0;
+    background: #fff;
+    color: #333;
+    border-radius: 6px;
+    padding: .35rem .55rem;
+    cursor: pointer;
+    margin-right: .25rem;
+  }
+  .reset-btn:hover { background: #f0f0f0; }
   .muted { color: #777; font-size: .9rem; }
   .error {
     color: #a10000;
@@ -410,37 +463,29 @@
   .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: rgba(0, 0, 0, .35);
+    display: grid;
+    place-items: center;
+    z-index: 1000;
     padding: 1rem;
-    z-index: 10;
   }
-  .modal {
+  .modal-card {
     width: min(420px, 100%);
     background: #fff;
     border-radius: 8px;
     padding: 1rem;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    display: flex;
-    flex-direction: column;
-    gap: .55rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .2);
+    display: grid;
+    gap: .75rem;
   }
-  .modal h3 {
-    font-size: 1rem;
-    margin: 0;
-  }
-  .modal input {
+  .modal-card label { font-size: .85rem; font-weight: 600; color: #555; }
+  .modal-card input {
+    width: 100%;
     padding: .55rem .65rem;
     border: 1px solid #ccc;
     border-radius: 4px;
     font: inherit;
-  }
-  .modal-actions {
-    display: flex;
-    gap: .45rem;
-    justify-content: flex-end;
     margin-top: .25rem;
   }
+  .modal-actions { display: flex; gap: .5rem; align-items: center; }
 </style>

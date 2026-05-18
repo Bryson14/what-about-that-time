@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { deleteUser, resetUserPassword, updateUserGroups } from "../../../../lib/auth";
-import { resetUserPasswordSchema, updateUserGroupsSchema } from "../../../../lib/validation";
+import { updateUserGroupsSchema, updateUserPasswordSchema } from "../../../../lib/validation";
 import { guardAdmin, jsonError, noContent, validationError } from "../../../../lib/api";
 import { logger } from "../../../../lib/logging";
 
@@ -66,7 +66,7 @@ export const PATCH: APIRoute = async (context) => {
 
     const username = context.params.username ?? "";
     const body = await context.request.json();
-    const parsed = resetUserPasswordSchema.safeParse(body);
+    const parsed = updateUserPasswordSchema.safeParse(body);
 
     if (!parsed.success) {
       logger.warn("user password reset validation failed", {
@@ -83,7 +83,7 @@ export const PATCH: APIRoute = async (context) => {
       return jsonError(result.error, 400);
     }
 
-    logger.info("user password reset", { username: username.trim().toLowerCase(), updatedBy: session.username });
+    logger.info("user password reset", { username: username.trim().toLowerCase(), resetBy: session.username });
     return noContent();
   } catch (err) {
     logger.error("failed to reset user password", { username: context.params.username, error: String(err) });

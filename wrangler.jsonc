@@ -2,7 +2,8 @@
 	"$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
 	"compatibility_date": "2026-05-13",
 	"compatibility_flags": [
-		"global_fetch_strictly_public"
+		"global_fetch_strictly_public",
+		"nodejs_compat"
 	],
 	"name": "what-about-that-time",
 	"main": "@astrojs/cloudflare/entrypoints/server",
