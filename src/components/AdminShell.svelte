@@ -20,7 +20,7 @@
   } = $props();
 
   let toastMsg = $state('');
-  let toastType: 'success' | 'error' = 'success';
+  let toastType = $state<'success' | 'error'>('success');
   let toastVisible = $state(false);
 
   let addUsername = $state('');

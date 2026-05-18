@@ -114,6 +114,14 @@
     },
   });
 
+  $effect(() => {
+    table.setOptions((prev) => ({
+      ...prev,
+      data: events,
+      state: { ...prev.state, sorting },
+    }));
+  });
+
   let headerGroups = $derived(table.getHeaderGroups());
   let rows = $derived(table.getRowModel().rows);
 

@@ -3,6 +3,7 @@
   import Header from './Header.svelte';
   import EventsTable from './EventsTable.svelte';
   import Toast from './Toast.svelte';
+
   import { QueryClient, QueryClientProvider, createMutation, createQuery } from '@tanstack/svelte-query';
   import type { SortingState } from '@tanstack/svelte-table';
   import {
@@ -41,11 +42,6 @@
     group_name: string;
   }
 
-  type EventMutationInput = {
-    eventId?: number;
-    body: Record<string, string>;
-  };
-
   type EventMutationResult = {
     eventId: number;
     isNew: boolean;
@@ -76,15 +72,68 @@
   } = $props();
 
   const STORAGE_KEY = 'demo_events';
-  const REFETCH_INTERVAL_MS = 60000;
-  const queryClient = new QueryClient();
   let allEvents: EventItem[] = $state([]);
   let events = $state(initialEvents);
   let total = $state(initialTotal);
   let page = $state(initialPage);
   let search = $state(initialSearch);
   let demoLoaded = $state(false);
-  let lastQueryError = $state('');
+
+  const queryClient = new QueryClient();
+
+  const eventsQuery = createQuery(() => ({
+    queryKey: ['events', page, pageSize, search],
+    enabled: !demo,
+    queryFn: () => requestPaginatedEvents(page, search),
+    initialData: () => ({
+      events: initialEvents,
+      total: initialTotal,
+      page: initialPage,
+      pageSize,
+      totalPages: Math.max(Math.ceil(initialTotal / pageSize), 1),
+    }),
+  }), () => queryClient);
+
+  const saveEventMutation = createMutation(() => ({
+    mutationFn: async ({ eventId, body }: { eventId?: number; body: Record<string, string> }): Promise<EventMutationResult> => {
+      const url = eventId ? `/api/events/${eventId}` : '/api/events';
+      const method = eventId ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to save event'));
+      }
+      if (!eventId) {
+        const data = await response.json();
+        return { eventId: data.id as number, isNew: true };
+      }
+      return { eventId, isNew: false };
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+    onError: (error) => {
+      showToast(error instanceof Error ? error.message : 'Failed to save event', 'error');
+    },
+  }), () => queryClient);
+
+  const deleteEventMutation = createMutation(() => ({
+    mutationFn: async (eventId: number) => {
+      const response = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to delete event'));
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+    onError: (error) => {
+      showToast(error instanceof Error ? error.message : 'Failed to delete event', 'error');
+    },
+  }), () => queryClient);
 
   let editId = $state<number | null>(null);
   let editTitle = $state('');
@@ -141,11 +190,7 @@
   }
 
   async function requestPaginatedEvents(pageNum: number, query: string) {
-    const params = new URLSearchParams({
-      page: String(pageNum),
-      pageSize: String(pageSize),
-      search: query,
-    });
+    const params = new URLSearchParams({ page: String(pageNum), pageSize: String(pageSize), search: query });
     const response = await fetch('/api/events?' + params.toString());
     if (!response.ok) {
       throw new Error(await getErrorMessage(response, 'Failed to load events'));
@@ -153,72 +198,11 @@
     const payload = await response.json();
     const parsed = paginatedEventsResponseSchema.safeParse(payload);
     if (!parsed.success) {
-      logger.error('events response validation failed', {
-        issues: JSON.stringify(parsed.error.issues),
-      });
+      logger.error('events response validation failed', { issues: JSON.stringify(parsed.error.issues) });
       throw new Error('Invalid events response');
     }
     return parsed.data;
   }
-
-  const eventsQuery = createQuery(() => ({
-    queryKey: ['events', page, pageSize, search],
-    enabled: !demo,
-    refetchInterval: REFETCH_INTERVAL_MS,
-    refetchOnWindowFocus: true,
-    queryFn: () => requestPaginatedEvents(page, search),
-    initialData: {
-      events: initialEvents,
-      total: initialTotal,
-      page: initialPage,
-      pageSize,
-      totalPages: Math.max(Math.ceil(initialTotal / pageSize), 1),
-    },
-  }), () => queryClient);
-
-  // Returns { eventId, isNew } — isNew is true when a new event was created (POST), false for updates (PUT).
-  const saveEventMutation = createMutation(() => ({
-    mutationFn: async ({ eventId, body }: EventMutationInput): Promise<EventMutationResult> => {
-      const url = eventId ? `/api/events/${eventId}` : '/api/events';
-      const method = eventId ? 'PUT' : 'POST';
-      const response = await fetch(url, {
-        method,
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to save event'));
-      }
-      if (!eventId) {
-        const data = await response.json();
-        return { eventId: data.id as number, isNew: true };
-      }
-      return { eventId, isNew: false };
-    },
-    onSuccess: async ({ eventId, isNew }) => {
-      await queryClient.invalidateQueries({ queryKey: ['events'] });
-      showToast(isNew ? 'Event added' : 'Event updated');
-    },
-    onError: (error) => {
-      showToast(error instanceof Error ? error.message : 'Failed to save event', 'error');
-    },
-  }), () => queryClient);
-
-  const deleteEventMutation = createMutation(() => ({
-    mutationFn: async (eventId: number) => {
-      const response = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to delete event'));
-      }
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['events'] });
-      showToast('Event deleted');
-    },
-    onError: (error) => {
-      showToast(error instanceof Error ? error.message : 'Failed to delete event', 'error');
-    },
-  }), () => queryClient);
 
   $effect(() => {
     if (demo && !demoLoaded && typeof window !== 'undefined') {
@@ -239,15 +223,12 @@
     events = data.events;
     total = data.total;
     page = data.page;
-    lastQueryError = '';
   });
 
   $effect(() => {
     if (demo) return;
     const error = eventsQuery.error;
     if (!(error instanceof Error)) return;
-    if (error.message === lastQueryError) return;
-    lastQueryError = error.message;
     showToast(error.message, 'error');
   });
 
@@ -504,13 +485,33 @@
     const capturedSubjectIds = new Set(editSubjectIds);
 
     const result = await saveEventMutation.mutateAsync({ eventId, body });
+    showToast(result.isNew ? 'Event added' : 'Event updated');
     closeDialog();
     formEl?.reset();
     clearEventIdInput();
+
+    const groupId = Number(body.group_id);
+    const groupName = userGroups.find(g => g.id === groupId)?.name ?? '';
+    const displayEvent: EventItem = {
+      id: result.eventId,
+      title: body.title,
+      start_date: body.start_date,
+      end_date: body.end_date || null,
+      notes: body.notes || null,
+      group_id: groupId,
+      group_name: groupName,
+      created_by: session.username,
+      created_at: new Date().toISOString(),
+    };
     if (result.isNew) {
       page = 1;
       search = '';
+      events = [displayEvent, ...events];
+      total = total + 1;
+    } else {
+      events = events.map(ev => ev.id === result.eventId ? displayEvent : ev);
     }
+
     await syncEventTags(result.eventId, capturedTagIds);
     await syncEventSubjects(result.eventId, capturedSubjectIds);
   }
@@ -572,7 +573,11 @@
       applyDemoFilter();
       return;
     }
+    closeDialog();
     await deleteEventMutation.mutateAsync(evId);
+    events = events.filter(ev => ev.id !== evId);
+    total = total - 1;
+    showToast('Event deleted');
   }
 </script>
 
