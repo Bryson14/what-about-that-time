@@ -58,6 +58,17 @@ function toHex(bytes: Uint8Array): string {
   return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function isKvRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function resolveDisplayName(value: unknown, username: string): string {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+  return normalizeUsername(username);
+}
+
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let mismatch = 0;
@@ -94,7 +105,7 @@ async function hashPassword(password: string, saltHex: string): Promise<string> 
 
 async function getStoredUser(username: string): Promise<StoredUser | null> {
   const raw = await usersKv().get(userKey(username), "json");
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  if (!isKvRecord(raw)) return null;
   const parsed = storedUserSchema.safeParse(raw);
   if (parsed.success) return parsed.data;
 
@@ -115,7 +126,7 @@ async function getStoredUser(username: string): Promise<StoredUser | null> {
     : [];
 
   return {
-    fullName: typeof fallback.fullName === "string" && fallback.fullName.trim().length > 0 ? fallback.fullName : normalizeUsername(username),
+    fullName: resolveDisplayName(fallback.fullName, username),
     role: fallback.role === "admin" ? "admin" : "user",
     allowedGroups: fallbackGroups.length > 0 ? fallbackGroups : ["default"],
     passwordHash: fallback.passwordHash,
@@ -124,11 +135,10 @@ async function getStoredUser(username: string): Promise<StoredUser | null> {
 }
 
 function normalizeUserSummary(raw: unknown, username: string): UserSummary | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  if (!isKvRecord(raw)) return null;
   const record = raw as { fullName?: unknown; role?: unknown; allowedGroups?: unknown };
 
-  const fullName =
-    typeof record.fullName === "string" && record.fullName.trim().length > 0 ? record.fullName.trim() : normalizeUsername(username);
+  const fullName = resolveDisplayName(record.fullName, username);
   const role: "admin" | "user" = record.role === "admin" ? "admin" : "user";
   const allowedGroups = Array.isArray(record.allowedGroups)
     ? record.allowedGroups.filter((group): group is string => typeof group === "string" && group.trim().length > 0)
@@ -221,7 +231,8 @@ export async function listUsers(): Promise<UserSummary[]> {
   do {
     const page = await usersKv().list({ prefix: USER_PREFIX, cursor });
     keyNames.push(...page.keys.map((key: { name: string }) => key.name));
-    if (page.list_complete || !page.cursor) break;
+    if (page.list_complete) break;
+    if (!page.cursor) break;
     cursor = page.cursor;
   } while (true);
 
@@ -245,7 +256,8 @@ async function listSessionKeys(): Promise<string[]> {
   do {
     const page = await usersKv().list({ prefix: SESSION_PREFIX, cursor });
     keyNames.push(...page.keys.map((key: { name: string }) => key.name));
-    if (page.list_complete || !page.cursor) break;
+    if (page.list_complete) break;
+    if (!page.cursor) break;
     cursor = page.cursor;
   } while (true);
 
@@ -307,7 +319,7 @@ export async function updateUserGroups(
   if (!allowedGroups || allowedGroups.length === 0) return { ok: false, error: "at least one allowed group is required" };
 
   const stored = await getStoredUser(normalized);
-  if (!stored) return { ok: false, error: "user does not have a valid password record; reset password to repair account" };
+  if (!stored) return { ok: false, error: "user record is invalid or corrupted" };
 
   const updated: StoredUser = { ...stored, fullName: user.fullName, role: user.role, allowedGroups };
   await usersKv().put(userKey(normalized), JSON.stringify(updated));
