@@ -97,6 +97,8 @@
   let availableSubjects = $state<Subject[]>([]);
   let editTagIds = $state<Set<number>>(new Set());
   let editSubjectIds = $state<Set<number>>(new Set());
+  let newTagName = $state('');
+  let newSubjectName = $state('');
 
   let dialogEl: HTMLDialogElement;
   let formEl: HTMLFormElement;
@@ -106,6 +108,8 @@
   let toastVisible = $state(false);
 
   let sorting = $state<SortingState>([]);
+  let eventTagMap = $state<Map<number, Tag[]>>(new Map());
+  let eventSubjectMap = $state<Map<number, Subject[]>>(new Map());
 
   let dialogTitle = $derived(editId !== null ? 'Edit Event' : 'Add Event');
   let submitLabel = $derived(editId !== null ? 'Save' : 'Add');
@@ -247,6 +251,42 @@
     showToast(error.message, 'error');
   });
 
+  $effect(() => {
+    const currentEvents = events;
+    if (demo || currentEvents.length === 0) {
+      eventTagMap = new Map();
+      eventSubjectMap = new Map();
+      return;
+    }
+    const controller = new AbortController();
+    (async () => {
+      const tagResults = await Promise.all(
+        currentEvents.map(ev =>
+          fetch(`/api/events/${ev.id}/tags`, { signal: controller.signal })
+            .then(r => r.ok ? r.json() : [])
+            .catch(() => [] as Tag[])
+        )
+      );
+      const subjectResults = await Promise.all(
+        currentEvents.map(ev =>
+          fetch(`/api/events/${ev.id}/subjects`, { signal: controller.signal })
+            .then(r => r.ok ? r.json() : [])
+            .catch(() => [] as Subject[])
+        )
+      );
+      if (controller.signal.aborted) return;
+      const newTagMap = new Map<number, Tag[]>();
+      const newSubjectMap = new Map<number, Subject[]>();
+      currentEvents.forEach((ev, i) => {
+        newTagMap.set(ev.id, tagResults[i] as Tag[]);
+        newSubjectMap.set(ev.id, subjectResults[i] as Subject[]);
+      });
+      eventTagMap = newTagMap;
+      eventSubjectMap = newSubjectMap;
+    })();
+    return () => controller.abort();
+  });
+
   function showToast(msg: string, type: 'success' | 'error' = 'success') {
     toastMsg = msg;
     toastType = type;
@@ -293,6 +333,40 @@
     const next = new Set(editSubjectIds);
     if (next.has(id)) next.delete(id); else next.add(id);
     editSubjectIds = next;
+  }
+
+  async function handleAddTag() {
+    const name = newTagName.trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) return;
+      const { id } = await res.json();
+      availableTags = [...availableTags, { id, name }];
+      editTagIds = new Set([...editTagIds, id]);
+      newTagName = '';
+    } catch { /* ignore */ }
+  }
+
+  async function handleAddSubject() {
+    const name = newSubjectName.trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/subjects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) return;
+      const { id } = await res.json();
+      availableSubjects = [...availableSubjects, { id, name }];
+      editSubjectIds = new Set([...editSubjectIds, id]);
+      newSubjectName = '';
+    } catch { /* ignore */ }
   }
 
   async function syncEventTags(eventId: number, selectedIds: Set<number>) {
@@ -514,6 +588,8 @@
       {page}
       {pageSize}
       {search}
+      eventTagMap={demo ? new Map() : eventTagMap}
+      eventSubjectMap={demo ? new Map() : eventSubjectMap}
       canModify={canModify}
       onEdit={openEditDialog}
       onSearch={onSearch}
@@ -553,29 +629,45 @@
             {/each}
           </select>
         </div>
-        {#if !demo && availableTags.length > 0}
+        {#if !demo}
           <div class="field">
             <label>Tags <em>(Optional)</em></label>
-            <div class="chip-group">
-              {#each availableTags as tag}
-                <label class="chip-label">
-                  <input type="checkbox" checked={editTagIds.has(tag.id)} onchange={() => toggleTag(tag.id)} />
-                  {tag.name}
-                </label>
-              {/each}
+            {#if availableTags.length > 0}
+              <div class="chip-group">
+                {#each availableTags as tag}
+                  <label class="chip-label">
+                    <input type="checkbox" checked={editTagIds.has(tag.id)} onchange={() => toggleTag(tag.id)} />
+                    {tag.name}
+                  </label>
+                {/each}
+              </div>
+            {:else}
+              <p class="empty-chips">No tags yet. Create one below.</p>
+            {/if}
+            <div class="inline-add">
+              <input type="text" placeholder="New tag name..." bind:value={newTagName} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); }}} />
+              <button type="button" onclick={handleAddTag} disabled={!newTagName.trim()}>+</button>
             </div>
           </div>
         {/if}
-        {#if !demo && availableSubjects.length > 0}
+        {#if !demo}
           <div class="field">
             <label>Subjects <em>(Optional)</em></label>
-            <div class="chip-group">
-              {#each availableSubjects as subject}
-                <label class="chip-label">
-                  <input type="checkbox" checked={editSubjectIds.has(subject.id)} onchange={() => toggleSubject(subject.id)} />
-                  {subject.name}
-                </label>
-              {/each}
+            {#if availableSubjects.length > 0}
+              <div class="chip-group">
+                {#each availableSubjects as subject}
+                  <label class="chip-label">
+                    <input type="checkbox" checked={editSubjectIds.has(subject.id)} onchange={() => toggleSubject(subject.id)} />
+                    {subject.name}
+                  </label>
+                {/each}
+              </div>
+            {:else}
+              <p class="empty-chips">No subjects yet. Create one below.</p>
+            {/if}
+            <div class="inline-add">
+              <input type="text" placeholder="New subject name..." bind:value={newSubjectName} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubject(); }}} />
+              <button type="button" onclick={handleAddSubject} disabled={!newSubjectName.trim()}>+</button>
             </div>
           </div>
         {/if}
@@ -679,6 +771,34 @@
     cursor: pointer;
   }
   .chip-label input[type="checkbox"] { margin: 0; accent-color: #1a1a1a; }
+
+  .empty-chips { font-size: .8rem; color: #999; margin: .2rem 0; }
+
+  .inline-add {
+    display: flex;
+    gap: .3rem;
+    margin-top: .35rem;
+  }
+  .inline-add input {
+    flex: 1;
+    padding: .3rem .5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+    font-size: .85rem;
+  }
+  .inline-add button {
+    padding: .3rem .6rem;
+    border: 1px solid #ccc;
+    background: #f3f3f3;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .inline-add button:hover:not(:disabled) { background: #e5e5e5; }
+  .inline-add button:disabled { opacity: .4; cursor: default; }
 
   .save-btn {
     padding: .6rem 1rem; background: #1a1a1a; color: #fff;

@@ -239,7 +239,7 @@
 </script>
 
 <Header {session} isAdmin={true} title="Admin Dashboard" navLinks={[
-  { href: '/app', label: 'Back to app' },
+  { href: '/app', label: 'Events' },
   { href: '/timeline', label: 'Timeline' },
 ]} />
 
