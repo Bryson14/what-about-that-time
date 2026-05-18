@@ -126,8 +126,8 @@ async function forEachKey(prefix: string, callback: (key: KvKey) => Promise<void
   let cursor: string | undefined = undefined;
 
   do {
-    const page = await usersKv().list({ prefix, cursor });
-    await Promise.all((page.keys as KvKey[]).map(callback));
+    const page = await usersKv().list({ prefix, cursor }) as { keys: KvKey[]; list_complete: boolean; cursor?: string };
+    await Promise.all(page.keys.map(callback));
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
 }
@@ -197,6 +197,17 @@ function normalizeUserSummary(raw: unknown, username: string): UserSummary | nul
     fullName,
     role,
     allowedGroups: allowedGroups.length > 0 ? allowedGroups : ["default"],
+  };
+}
+
+function toAuthenticatedStoredUser(record: StoredUserRecord): StoredUser | null {
+  if (!record.passwordHash || !record.salt) return null;
+  return {
+    fullName: record.fullName,
+    role: record.role,
+    allowedGroups: record.allowedGroups,
+    passwordHash: record.passwordHash,
+    salt: record.salt,
   };
 }
 
@@ -298,7 +309,8 @@ export async function listUsers(): Promise<UserSummary[]> {
   );
 
   return users
-    .sort((a: UserSummary, b: UserSummary) => a.username.localeCompare(b.username));
+    .filter((u): u is UserSummary => u !== null)
+    .sort((a, b) => a.username.localeCompare(b.username));
 }
 
 async function listSessionKeys(): Promise<string[]> {
@@ -383,9 +395,16 @@ export async function updateUserGroups(
   const normalized = normalizeUsername(username);
   const stored = await getStoredUser(normalized);
   if (!stored) return { ok: false, error: "user not found or record is invalid" };
+  if (!stored.passwordHash || !stored.salt) return { ok: false, error: "user record is missing authentication data" };
   if (!allowedGroups || allowedGroups.length === 0) return { ok: false, error: "at least one allowed group is required" };
 
-  const updated: StoredUser = { ...stored, allowedGroups };
+  const updated: StoredUser = {
+    fullName: stored.fullName,
+    role: stored.role,
+    allowedGroups,
+    passwordHash: stored.passwordHash,
+    salt: stored.salt,
+  };
   await usersKv().put(userKey(normalized), JSON.stringify(updated));
   return { ok: true };
 }
